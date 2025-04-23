@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { StarRating } from "@/components/StarRating";
 import Image from "next/image";
 import { PageLoading } from "@/components/PageLoading";
+import client from "@/lib/backend/client";
 
 // API 응답 타입과 일치하는 인터페이스
 interface ThemeDetailResponse {
@@ -114,28 +115,10 @@ export default function ThemeDetailPage() {
     const fetchThemeDetail = async () => {
       setLoading(true);
       try {
-        const response = await fetch(
-          `${
-            process.env.NODE_ENV === "development"
-              ? "http://localhost:8080"
-              : "https://api.ddobang.site"
-          }/api/v1/themes/${themeId}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            credentials: "include",
-          }
-        );
+        const response = await client.GET(`/api/v1/themes/${themeId}`);
 
-        if (!response.ok) {
-          throw new Error("테마 정보를 불러오는데 실패했습니다.");
-        }
-
-        const data = await response.json();
-        if (data && data.data) {
-          setThemeDetail(data.data);
+        if (response?.data?.data) {
+          setThemeDetail(response.data.data);
         } else {
           throw new Error("응답 데이터가 올바르지 않습니다.");
         }
@@ -563,13 +546,13 @@ export default function ThemeDetailPage() {
               희망 테마 설정
             </Link>
             <Link
-              href="/par"
+              href={`/parties/create?themeId=${themeId}&themeName=${encodeURIComponent(themeDetail.name || '')}`}
               className="flex-1 px-6 py-3 bg-[#FFB130] text-white rounded-lg hover:bg-[#FFA000] transition-colors text-center shadow-sm whitespace-nowrap"
             >
               모임 만들기
             </Link>
             <Link
-              href="/themes"
+              href={`/parties?themeId=${themeId}&themeName=${encodeURIComponent(themeDetail.name || '')}`}
               className="flex-1 px-6 py-3 bg-[#FFB130] text-white rounded-lg hover:bg-[#FFA000] transition-colors text-center shadow-sm whitespace-nowrap"
             >
               모임찾기

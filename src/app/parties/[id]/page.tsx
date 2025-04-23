@@ -353,29 +353,30 @@ export default function PartyDetailPage() {
     return `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lon}&zoom=14&size=600x400&maptype=mapnik&markers=${lat},${lon},lightblue`;
   };
 
-  // 로딩 중 표시
   if (loading) {
     return (
-      <main className="bg-gray-50 min-h-screen">
-        <Navigation activePage="parties" />
-        <div className="max-w-7xl mx-auto px-6 py-12 flex justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFB130] mx-auto"></div>
+          <p className="mt-4 text-gray-600">로딩 중...</p>
         </div>
-      </main>
+      </div>
     );
   }
 
-  // 오류 발생 시 모임 목록으로 자동 리다이렉트하므로 오류 표시 UI 제거
   if (error || !partyData) {
-    // 렌더링 전에 이미 리다이렉트 처리되었지만,
-    // 혹시 렌더링되는 경우를 대비해 최소한의 로딩 화면 표시
     return (
-      <main className="bg-gray-50 min-h-screen">
-        <Navigation activePage="parties" />
-        <div className="max-w-7xl mx-auto px-6 py-12 flex justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-500 mb-4">{error || "모임 정보를 불러올 수 없습니다."}</p>
+          <button
+            onClick={() => router.push("/parties")}
+            className="px-4 py-2 bg-[#FFB130] text-white rounded-lg hover:bg-[#FFA000]"
+          >
+            모임 목록으로 돌아가기
+          </button>
         </div>
-      </main>
+      </div>
     );
   }
 
@@ -407,10 +408,8 @@ export default function PartyDetailPage() {
   console.log("remainingCount", totalRemainingCount);
 
   return (
-    <main className="bg-gray-50 min-h-screen">
-      {/* <Navigation activePage="parties" /> */}
-
-      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 py-8">
+    <div className="min-h-screen bg-gray-50">
+      <main className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 py-8">
         {/* [1단] 모임 기본 정보 */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 mb-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
@@ -526,8 +525,6 @@ export default function PartyDetailPage() {
                             )}
                           </div>
                         </div>
-                        <Link
-                          href={`/profile/${member.id}`}
                         <Link
                           href={`/profile/${member.id}`}
                           className="text-xs text-blue-600 hover:underline"
@@ -795,7 +792,7 @@ export default function PartyDetailPage() {
             </button>
           )}
         </div>
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }
