@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useInView } from "react-intersection-observer";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { ThemeCard } from "@/components/ThemeCard";
 import { ThemeSearch } from "@/components/ThemeSearch";
 import { EscapeRoom } from "@/types/EscapeRoom";
@@ -10,7 +9,6 @@ import client from "@/lib/backend/client";
 
 export default function ThemesPage() {
   const [themes, setThemes] = useState<EscapeRoom[]>([]);
-  const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
@@ -20,11 +18,22 @@ export default function ThemesPage() {
     tagIds: [] as number[],
     participants: "",
   });
-  const { ref, inView } = useInView({
-    threshold: 0,
-  });
+  const observer = useRef<IntersectionObserver | null>(null);
+  const ITEMS_PER_PAGE = 8;
 
-  const ITEMS_PER_PAGE = 12;
+  // 마지막 요소 관찰을 위한 ref callback
+  const lastThemeElementRef = useCallback((node: HTMLDivElement) => {
+    if (loading) return;
+    if (observer.current) observer.current.disconnect();
+    
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        loadMoreThemes(false);
+      }
+    });
+
+    if (node) observer.current.observe(node);
+  }, [loading, hasMore]);
 
   const loadMoreThemes = async (reset = false) => {
     if (loading || (!hasMore && !reset)) return;
@@ -32,19 +41,19 @@ export default function ThemesPage() {
     setLoading(true);
     try {
       if (reset) {
-        setPage(0);
         setThemes([]);
         setHasMore(true);
       }
 
-      const currentPage = reset ? 0 : page;
+      const lastTheme = themes[themes.length - 1];
+      const lastId = reset ? undefined : lastTheme?.id;
 
       const response = await client.POST("/api/v1/themes", {
         params: {
           query: {
-            page: currentPage,
-            size: ITEMS_PER_PAGE,
-          },
+            page: reset ? 0 : themes.length / ITEMS_PER_PAGE,
+            size: ITEMS_PER_PAGE
+          }
         },
         body: {
           regionId: selectedFilters.regionId,
@@ -53,46 +62,34 @@ export default function ThemesPage() {
           participants: selectedFilters.participants
             ? parseInt(selectedFilters.participants.replace(/[^0-9]/g, ""))
             : undefined,
-        },
+        }
       });
 
-      const data = response.data;
+      if (response?.data?.data) {
+        const apiThemes = response.data.data.content || [];
+        const hasNext = response.data.data.hasNext || false;
 
-      if (data && data.data) {
-        const apiThemes = data.data.content || [];
-
-        if (apiThemes.length === 0) {
+        if (apiThemes.length === 0 || (apiThemes[0]?.id === lastId)) {
           setHasMore(false);
         } else {
-          // API 응답에서 받은 테마 데이터를 EscapeRoom 타입으로 변환
-          const newThemes = apiThemes.map((theme: any) => ({
-            id: theme.id?.toString(),
-            title: theme.name || "",
-            category: theme.storeName || "",
-            date: "오늘",
-            location: theme.storeName?.split(" ")[0] || "",
-            participants: theme.recommendedParticipants || "2-4인",
-            subInfo: theme.runtime ? `${theme.runtime}분` : "",
-            tags: theme.tags || [],
-            image: theme.thumbnailUrl || "/images/mystery-room.jpg",
-            rating: "80",
-          }));
-
-          setThemes((prev) => {
-            if (reset || currentPage === 0) return newThemes;
-
-            // 중복 제거
-            const uniqueThemes = [
-              ...new Set([...prev, ...newThemes].map((theme) => theme.id)),
-            ].map(
-              (id) => [...prev, ...newThemes].find((theme) => theme.id === id)!
-            );
-            return uniqueThemes;
-          });
-
-          setPage((prev) => (reset ? 1 : prev + 1));
-          setHasMore(data.data.hasNext || false);
+          setHasMore(hasNext);
         }
+
+        // API 응답에서 받은 테마 데이터를 EscapeRoom 타입으로 변환
+        const newThemes = apiThemes.map((theme: any) => ({
+          id: theme.id?.toString(),
+          title: theme.name || "",
+          category: theme.storeName || "",
+          date: "오늘",
+          location: theme.storeName?.split(" ")[0] || "",
+          participants: theme.recommendedParticipants || "2-4인",
+          subInfo: theme.runtime ? `${theme.runtime}분` : "",
+          tags: theme.tags || [],
+          image: theme.thumbnailUrl || "/images/mystery-room.jpg",
+          rating: "80",
+        }));
+
+        setThemes(prev => reset ? newThemes : [...prev, ...newThemes]);
       } else {
         setHasMore(false);
       }
@@ -122,14 +119,8 @@ export default function ThemesPage() {
   };
 
   useEffect(() => {
-    loadMoreThemes();
+    loadMoreThemes(true);
   }, []);
-
-  useEffect(() => {
-    if (inView) {
-      loadMoreThemes();
-    }
-  }, [inView]);
 
   // 스켈레톤 카드 렌더링 함수
   const renderSkeletonCards = () => {
@@ -176,10 +167,15 @@ export default function ThemesPage() {
         ) : (
           <div className="mt-8">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {themes.map((theme) => (
-                <ThemeCard key={theme.id} room={theme} />
+              {themes.map((theme, index) => (
+                <div
+                  key={`theme-${theme.id}-${index}`}
+                  ref={index === themes.length - 1 ? lastThemeElementRef : undefined}
+                >
+                  <ThemeCard room={theme} />
+                </div>
               ))}
-              {loading && !initialLoading && renderSkeletonCards()}
+              {loading && renderSkeletonCards()}
             </div>
             {themes.length === 0 && !loading && (
               <div className="text-center my-20">
@@ -193,9 +189,6 @@ export default function ThemesPage() {
             )}
           </div>
         )}
-
-        {/* 무한 스크롤 감지용 요소 */}
-        <div ref={ref} className="h-10 w-full" />
       </main>
     </div>
   );
