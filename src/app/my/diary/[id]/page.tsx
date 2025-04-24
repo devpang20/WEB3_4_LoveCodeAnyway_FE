@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { DiaryDetail } from "@/types/Diary";
 import { useEffect, useState, use } from "react";
+import { client } from "@/lib/api/client";
+import Slider from "react-slick";
+import "slick-carousel/slick/slick.css";
+import "slick-carousel/slick/slick-theme.css";
+import { useRouter } from "next/navigation";
 
 // API 응답을 DiaryDetail 타입으로 변환하는 함수
 const convertApiToDiaryDetail = (apiData: any): DiaryDetail => {
@@ -14,8 +19,8 @@ const convertApiToDiaryDetail = (apiData: any): DiaryDetail => {
     playDate: apiData.escapeDate || "",
     escapeTime: apiData.elapsedTime?.toString() || "",
     hintCount: apiData.hintCount || 0,
-    themeImage: apiData.imageUrl || "",
-    escapeImages: apiData.escapeImages || [],
+    themeImage: apiData.thumbnailUrl || "",
+    escapeImages: apiData.imageUrl ? [apiData.imageUrl] : [],
     participants: apiData.participants || "",
     ratings: {
       interior: apiData.interior || 0,
@@ -32,65 +37,133 @@ const convertApiToDiaryDetail = (apiData: any): DiaryDetail => {
   };
 };
 
+// 원형 그래프 컴포넌트
+const CircularRating = ({ value, label }: { value: number; label: string }) => {
+  const radius = 40;
+  const circumference = 2 * Math.PI * radius;
+  const progress = (value / 5) * circumference;
+  const rotation = -90; // 시작 위치를 12시 방향으로 조정
+
+  return (
+    <div className="flex flex-col items-center">
+      <div className="relative w-24 h-24">
+        {/* 배경 원 */}
+        <svg className="w-full h-full transform -rotate-90">
+          <circle
+            cx="48"
+            cy="48"
+            r={radius}
+            stroke="#e5e7eb"
+            strokeWidth="8"
+            fill="none"
+          />
+          {/* 진행도 원 */}
+          <circle
+            cx="48"
+            cy="48"
+            r={radius}
+            stroke="#FFB130"
+            strokeWidth="8"
+            fill="none"
+            strokeDasharray={circumference}
+            strokeDashoffset={circumference - progress}
+            strokeLinecap="round"
+          />
+        </svg>
+        {/* 중앙 텍스트 */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-lg font-semibold">{value}/5</span>
+        </div>
+      </div>
+      <span className="mt-2 text-sm text-gray-600">{label}</span>
+    </div>
+  );
+};
+
+// 플레이 정보 카드 컴포넌트
+const PlayInfoCard = ({ 
+  icon, 
+  label, 
+  value, 
+  bgColor = "bg-white"
+}: { 
+  icon: React.ReactNode; 
+  label: string; 
+  value: string | number;
+  bgColor?: string;
+}) => {
+  return (
+    <div className={`${bgColor} rounded-lg shadow p-6 flex flex-col items-center justify-center min-w-[200px]`}>
+      <div className="mb-2">
+        {icon}
+      </div>
+      <div className="text-2xl font-bold mb-1">
+        {value}
+      </div>
+      <div className="text-gray-500 text-sm">
+        {label}
+      </div>
+    </div>
+  );
+};
+
 export default function Page({ params }: { params: Promise<{ id: string }> }) {
   const unwrappedParams = use(params);
   const [diary, setDiary] = useState<DiaryDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  // 삭제 핸들러 함수 추가
+  const handleDelete = async () => {
+    if (!confirm("정말로 이 탈출일지를 삭제하시겠습니까?")) {
+      return;
+    }
+
+    try {
+      const response = await client.delete(`/api/v1/diaries/${unwrappedParams.id}`, {
+        withCredentials: true,
+      });
+
+      if (response.status === 200) {
+        alert("탈출일지가 성공적으로 삭제되었습니다.");
+        router.push("/my/diary");
+      }
+    } catch (error) {
+      console.error("Error deleting diary:", error);
+      alert("탈출일지 삭제에 실패했습니다.");
+    }
+  };
 
   useEffect(() => {
     const fetchDiary = async () => {
       try {
         setIsLoading(true);
 
-        // API 호출 대신 가데이터 사용
-        const mockDiaryData = {
-          id: unwrappedParams.id,
-          themeName: "미스터리 박스: 비밀의 방",
-          storeName: "이스케이프 홍대점",
-          escapeResult: true,
-          escapeDate: "2024-04-15",
-          elapsedTime: 3540, // 59분
-          hintCount: 2,
-          imageUrl:
-            "https://www.roomlescape.com/file/theme_info/1723787821_10bd760472.gif",
-          escapeImages: [
-            "https://www.roomlescape.com/file/theme_info/1723787821_10bd760472.gif",
-            "https://www.roomlescape.com/file/theme_info/1723787821_10bd760472.gif",
-            "https://www.roomlescape.com/file/theme_info/1723787821_10bd760472.gif",
-          ],
-          participants: "홍길동, 김철수, 이영희",
-          interior: 4,
-          question: 5,
-          story: 4,
-          production: 5,
-          satisfaction: 5,
-          deviceRatio: 3,
-          difficulty: 4,
-          fear: 2,
-          activity: 3,
-          review:
-            "정말 재미있는 탈출 게임이었습니다. 스토리도 탄탄하고 문제도 적당히 어려워서 좋았어요. 특히 마지막 문제는 정말 창의적이었습니다. 친구들과 함께 가서 더 재미있게 즐겼습니다. 다음에도 이 매장의 다른 테마에 도전해보고 싶네요!",
-        };
+        const response = await client.get(`/api/v1/diaries/${unwrappedParams.id}`, {
+          withCredentials: true,
+        });
 
-        // 가데이터 DiaryDetail 타입으로 변환
-        const diaryData = convertApiToDiaryDetail(mockDiaryData);
+        if (!response.data?.data) {
+          throw new Error("일지 데이터를 불러오는데 실패했습니다.");
+        }
+
+        console.log(response.data.data);
+
+        // API 응답을 DiaryDetail 타입으로 변환
+        const diaryData = convertApiToDiaryDetail(response.data.data);
 
         // 시간 형식 변환 (초 -> 분:초)
-        const minutes = Math.floor(mockDiaryData.elapsedTime / 60);
-        const seconds = mockDiaryData.elapsedTime % 60;
+        const minutes = Math.floor(response.data.data.elapsedTime / 60);
+        const seconds = response.data.data.elapsedTime % 60;
         diaryData.escapeTime = `${minutes}분 ${seconds}초`;
 
         setDiary(diaryData);
         setError(null);
-
-        // 로딩 시뮬레이션
-        setTimeout(() => {
-          setIsLoading(false);
-        }, 500);
       } catch (err) {
         console.error("Error details:", err);
         setError("탈출일지를 불러오는데 실패했습니다.");
+      } finally {
         setIsLoading(false);
       }
     };
@@ -157,15 +230,18 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
             >
               수정하기
             </Link>
-            <button className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+            <button 
+              onClick={handleDelete}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
               삭제하기
             </button>
           </div>
         </div>
 
         {/* 테마 이미지 섹션 */}
-        <div className="bg-white rounded-lg overflow-hidden mb-6 shadow-sm">
-          <div className="aspect-[21/9] relative overflow-hidden">
+        <div className="bg-white rounded-lg overflow-hidden mb-6 shadow-sm relative">
+          <div className="h-[300px] relative">
             {diary.themeImage ? (
               <img
                 src={diary.themeImage}
@@ -189,259 +265,250 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
                 </svg>
               </div>
             )}
+            {/* 테마 이름 오버레이 */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end">
+              <h1 className="text-4xl font-bold text-white p-8 w-full">
+                {diary.themeName}
+                <div className="text-lg font-normal mt-2 text-gray-200">
+                  {diary.storeName}
+                </div>
+              </h1>
+            </div>
           </div>
         </div>
 
-        {/* 다이어리 내용 */}
-        <div className="bg-white rounded-lg shadow-sm mb-6 p-6">
-          {/* 헤더 */}
-          <div className="flex justify-between items-start mb-6 border-b pb-4">
-            <div>
-              <h1 className="text-2xl font-bold mb-1">{diary.themeName}</h1>
-              <p className="text-gray-500">{diary.storeName}</p>
-            </div>
-            <span
-              className={`px-3 py-1 text-sm ${
-                diary.isSuccess
-                  ? "bg-green-100 text-green-800"
-                  : "bg-red-100 text-red-800"
-              } rounded-full font-medium`}
-            >
-              {diary.isSuccess ? "성공" : "실패"}
-            </span>
-          </div>
-
-          {/* 기본 정보 */}
-          <div className="mb-6">
-            <h2 className="text-lg font-semibold mb-3">플레이 정보</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-gray-500 mb-1">플레이 날짜</p>
-                <p className="font-medium">{diary.playDate}</p>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-gray-500 mb-1">탈출 시간</p>
-                <p className="font-medium">{diary.escapeTime}</p>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-gray-500 mb-1">힌트 사용</p>
-                <p className="font-medium">{diary.hintCount}회</p>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-gray-500 mb-1">참여자</p>
-                <p className="font-medium">{diary.participants}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* 평가 */}
-          <div className="mb-6">
-            <h2 className="text-lg font-semibold mb-3">평가</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-gray-500 mb-1">인테리어</p>
-                <div className="flex items-center">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <svg
-                      key={i}
-                      className={`w-5 h-5 ${
-                        i < diary.ratings.interior
-                          ? "text-[#FFB130]"
-                          : "text-gray-200"
-                      }`}
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                </div>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-gray-500 mb-1">구성</p>
-                <div className="flex items-center">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <svg
-                      key={i}
-                      className={`w-5 h-5 ${
-                        i < diary.ratings.composition
-                          ? "text-[#FFB130]"
-                          : "text-gray-200"
-                      }`}
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                </div>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-gray-500 mb-1">스토리</p>
-                <div className="flex items-center">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <svg
-                      key={i}
-                      className={`w-5 h-5 ${
-                        i < diary.ratings.story
-                          ? "text-[#FFB130]"
-                          : "text-gray-200"
-                      }`}
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                </div>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-gray-500 mb-1">연출</p>
-                <div className="flex items-center">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <svg
-                      key={i}
-                      className={`w-5 h-5 ${
-                        i < diary.ratings.production
-                          ? "text-[#FFB130]"
-                          : "text-gray-200"
-                      }`}
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                </div>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-gray-500 mb-1">만족도</p>
-                <div className="flex items-center">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <svg
-                      key={i}
-                      className={`w-5 h-5 ${
-                        i < diary.ratings.satisfaction
-                          ? "text-[#FFB130]"
-                          : "text-gray-200"
-                      }`}
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                </div>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-gray-500 mb-1">장치 비율</p>
-                <div className="flex items-center">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <svg
-                      key={i}
-                      className={`w-5 h-5 ${
-                        i < diary.ratings.deviceRatio
-                          ? "text-[#FFB130]"
-                          : "text-gray-200"
-                      }`}
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                </div>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-gray-500 mb-1">난이도</p>
-                <div className="flex items-center">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <svg
-                      key={i}
-                      className={`w-5 h-5 ${
-                        i < diary.ratings.difficulty
-                          ? "text-[#FFB130]"
-                          : "text-gray-200"
-                      }`}
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                </div>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-gray-500 mb-1">공포도</p>
-                <div className="flex items-center">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <svg
-                      key={i}
-                      className={`w-5 h-5 ${
-                        i < diary.ratings.horror
-                          ? "text-[#FFB130]"
-                          : "text-gray-200"
-                      }`}
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                </div>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-gray-500 mb-1">활동성</p>
-                <div className="flex items-center">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <svg
-                      key={i}
-                      className={`w-5 h-5 ${
-                        i < diary.ratings.activity
-                          ? "text-[#FFB130]"
-                          : "text-gray-200"
-                      }`}
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 리뷰 */}
-          <div className="mb-6">
-            <h2 className="text-lg font-semibold mb-3">리뷰</h2>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
-                {diary.comment}
-              </p>
-            </div>
-          </div>
-
-          {/* 이미지 */}
-          {diary.escapeImages && diary.escapeImages.length > 0 && (
-            <div>
-              <h2 className="text-lg font-semibold mb-3">탈출 사진</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {diary.escapeImages.map((image, index) => (
-                  <div
-                    key={index}
-                    className="aspect-square rounded-lg overflow-hidden bg-gray-100"
+        {/* 2열 레이아웃: 탈출 사진 카드 | 플레이 정보 카드 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          {/* 탈출 사진 카드 */}
+          <div className="bg-white rounded-lg shadow-sm p-6 flex flex-col">
+            <h2 className="text-lg font-semibold mb-4">탈출 사진</h2>
+            <div className="flex-1 relative h-[200px]">
+              <div className="absolute inset-0 rounded-lg overflow-hidden bg-gray-100">
+                {diary.escapeImages && diary.escapeImages.length > 0 ? (
+                  <Slider
+                    dots={true}
+                    infinite={true}
+                    speed={500}
+                    slidesToShow={1}
+                    slidesToScroll={1}
+                    arrows={true}
+                    className="h-full"
                   >
-                    <img
-                      src={image}
-                      alt={`탈출 사진 ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
+                    {diary.escapeImages.map((image, index) => (
+                      <div key={index} className="h-full">
+                        <img
+                          src={image}
+                          alt={`탈출 사진 ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ))}
+                  </Slider>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <svg
+                      className="w-16 h-16 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="1.5"
+                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
+                    </svg>
                   </div>
-                ))}
+                )}
               </div>
             </div>
-          )}
+          </div>
+
+          {/* Add custom styles for the slider */}
+          <style jsx global>{`
+            .slick-prev,
+            .slick-next {
+              z-index: 1;
+              width: 30px;
+              height: 30px;
+            }
+            .slick-prev {
+              left: 10px;
+            }
+            .slick-next {
+              right: 10px;
+            }
+            .slick-prev:before,
+            .slick-next:before {
+              font-size: 30px;
+            }
+            .slick-dots {
+              bottom: 10px;
+            }
+            .slick-dots li button:before {
+              color: white;
+            }
+            .slick-dots li.slick-active button:before {
+              color: white;
+            }
+          `}</style>
+
+          {/* 플레이 정보 카드 */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-lg font-semibold mb-6">플레이 정보</h2>
+
+            {/* 기본 정보 */}
+            <div className="mb-4">
+              <h3 className="text-md font-medium mb-4 text-gray-600">기본 정보</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">플레이 날짜</p>
+                      <p className="text-sm font-medium">{diary.playDate}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">참여자</p>
+                      <p className="text-sm font-medium">{diary.participants}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 구분선 */}
+            <div className="border-t border-gray-200 my-6"></div>
+
+            {/* 플레이 결과 */}
+            <div>
+              <h3 className="text-md font-medium mb-4 text-gray-600">플레이 결과</h3>
+              <div className="grid grid-cols-3 gap-4">
+                <div className={`bg-gray-50 p-4 rounded-lg ${diary.isSuccess ? 'bg-green-50' : 'bg-red-50'}`}>
+                  <div className="flex flex-col items-center">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${diary.isSuccess ? 'bg-green-100' : 'bg-red-100'}`}>
+                      {diary.isSuccess ? (
+                        <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium mb-1">{diary.isSuccess ? "성공" : "실패"}</p>
+                      <p className="text-xs text-gray-500">탈출 성공</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="flex flex-col items-center">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mb-2">
+                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium mb-1">{diary.escapeTime}</p>
+                      <p className="text-xs text-gray-500">탈출 시간</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="flex flex-col items-center">
+                    <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center mb-2">
+                      <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                      </svg>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium mb-1">{diary.hintCount}회</p>
+                      <p className="text-xs text-gray-500">힌트 사용</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 테마 평가 및 특성 통합 섹션 */}
+        <div className="bg-white rounded-lg shadow-sm mb-6 p-6">
+          <h2 className="text-lg font-semibold mb-6">테마 평가</h2>
+          
+          {/* 테마 특성 */}
+          <div className="mb-8">
+            <h3 className="text-md font-medium mb-4 text-gray-600">테마 특성</h3>
+            <div className="flex justify-around items-center">
+              <CircularRating value={diary.ratings.difficulty} label="난이도" />
+              <CircularRating value={diary.ratings.horror} label="공포도" />
+              <CircularRating value={diary.ratings.activity} label="활동성" />
+            </div>
+          </div>
+
+          {/* 구분선 */}
+          <div className="border-t border-gray-200 my-6"></div>
+
+          {/* 상세 평가 */}
+          <div>
+            <h3 className="text-md font-medium mb-4 text-gray-600">상세 평가</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+              {[
+                { id: "interior", label: "인테리어", color: "yellow" },
+                { id: "composition", label: "문제 구성", color: "yellow" },
+                { id: "story", label: "스토리", color: "yellow" },
+                { id: "production", label: "연출", color: "yellow" },
+                { id: "satisfaction", label: "만족도", color: "yellow" },
+                { id: "deviceRatio", label: "장치 비중", color: "yellow" },
+              ].map((item) => (
+                <div key={item.id} className="bg-gray-50 p-4 rounded-lg">
+                  <p className="text-gray-500 mb-2 text-sm">{item.label}</p>
+                  <div className="flex items-center">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <svg
+                        key={i}
+                        className={`w-5 h-5 ${
+                          i < diary.ratings[item.id as keyof typeof diary.ratings]
+                            ? "text-[#FFB130]"
+                            : "text-gray-200"
+                        }`}
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z" />
+                      </svg>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* 리뷰 카드 */}
+        <div className="bg-white rounded-lg shadow-sm mb-6 p-6">
+          <h2 className="text-lg font-semibold mb-6">리뷰</h2>
+          <div className="bg-gray-50 p-6 rounded-lg">
+            <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+              {diary.comment}
+            </p>
+          </div>
         </div>
       </div>
     </main>

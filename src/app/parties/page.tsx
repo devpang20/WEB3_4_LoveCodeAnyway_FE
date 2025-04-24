@@ -5,7 +5,7 @@ import { Navigation } from "@/components/Navigation";
 import { PartyCard } from "@/components/PartyCard";
 import { ThemeSearch } from "@/components/ThemeSearch";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getParties } from "@/lib/api/party";
 import { PageLoading } from "@/components/PageLoading";
 import { LoginMemberContext } from "@/stores/auth/loginMember";
@@ -37,6 +37,7 @@ interface SuccessResponseSliceDtoPartySummaryResponse {
 
 export default function PartiesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isLogin } = useContext(LoginMemberContext);
   const [parties, setParties] = useState<PartyMainResponse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -46,6 +47,14 @@ export default function PartiesPage() {
   const [hasMore, setHasMore] = useState(true);
   const observer = useRef<IntersectionObserver | null>(null);
   const ITEMS_PER_PAGE = 30;
+
+  // URL 파라미터에서 테마 정보를 읽어와서 초기 검색어 설정
+  useEffect(() => {
+    const themeName = searchParams.get('themeName');
+    if (themeName) {
+      setSearchKeyword(themeName);
+    }
+  }, [searchParams]);
 
   // 마지막 요소 관찰을 위한 ref callback
   const lastPartyElementRef = useCallback((node: HTMLDivElement) => {
@@ -69,7 +78,7 @@ export default function PartiesPage() {
     try {
       if (reset) {
         setParties([]);
-        setHasMore(true); // 리셋할 때 hasMore도 초기화
+        setHasMore(true);
       }
 
       const lastParty = parties[parties.length - 1];
@@ -78,6 +87,7 @@ export default function PartiesPage() {
       const searchCondition = {
         keyword: searchKeyword,
         regionIds: filterRegion ? [parseInt(filterRegion)] : undefined,
+        themeId: searchParams.get('themeId') ? parseInt(searchParams.get('themeId')!) : undefined,
       };
 
       const response = await client.POST("/api/v1/parties/search", {
@@ -108,7 +118,7 @@ export default function PartiesPage() {
       }
     } catch (error) {
       console.error("모임 데이터 로드 중 오류 발생:", error);
-      setHasMore(false); // 에러 발생 시 더 이상 로드하지 않도록 설정
+      setHasMore(false);
     } finally {
       setLoading(false);
       setInitialLoading(false);

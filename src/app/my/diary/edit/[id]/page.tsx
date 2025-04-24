@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { client } from "@/lib/api/client";
 import { XMarkIcon } from "@heroicons/react/24/outline";
@@ -50,7 +50,8 @@ interface DiaryRequestDto {
 }
 
 // 메인 컴포넌트
-export default function NewDiaryPage() {
+export default function EditDiaryPage({ params }: { params: Promise<{ id: string }> }) {
+  const unwrappedParams = use(params);
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -100,15 +101,83 @@ export default function NewDiaryPage() {
   // 탈출 정보 관련 상태
   const [hintCount, setHintCount] = useState<number | null>(null);
   const [isSuccess, setIsSuccess] = useState<boolean | null>(null);
-  const [timeType, setTimeType] = useState<"진행 시간" | "잔여 시간">(
-    "진행 시간"
-  );
+  const [timeType, setTimeType] = useState<"진행 시간" | "잔여 시간">("진행 시간");
   const [time, setTime] = useState("");
 
   // 소감 관련 상태
   const [comment, setComment] = useState("");
 
   // ==================== API 호출 함수 ====================
+
+  // 기존 일지 데이터 불러오기
+  useEffect(() => {
+    const fetchDiary = async () => {
+      try {
+        const response = await client.get(`/api/v1/diaries/${unwrappedParams.id}`, {
+          withCredentials: true,
+        });
+
+        if (!response.data?.data) {
+          throw new Error("일지 데이터를 불러오는데 실패했습니다.");
+        }
+
+        const diaryData = response.data.data;
+
+        // 테마 정보 설정
+        setSelectedTheme({
+          id: diaryData.themeId.toString(),
+          name: diaryData.themeName,
+          storeName: diaryData.storeName,
+        });
+
+        // 기본 정보 설정
+        setDate(diaryData.escapeDate);
+        setParticipants(diaryData.participants);
+
+        // 평가 정보 설정
+        setRatings({
+          interior: diaryData.interior,
+          composition: diaryData.question,
+          story: diaryData.story,
+          production: diaryData.production,
+          satisfaction: diaryData.satisfaction,
+          difficulty: diaryData.difficulty,
+          horror: diaryData.fear,
+          activity: diaryData.activity,
+        });
+
+        // 장치 정보 설정
+        setDeviceRatio(diaryData.deviceRatio);
+        setNoDevice(diaryData.deviceRatio === 0);
+
+        // 탈출 정보 설정
+        setHintCount(diaryData.hintCount);
+        setIsSuccess(diaryData.escapeResult);
+        setTimeType("진행 시간"); // 기본값으로 설정
+        setTime(formatTime(diaryData.elapsedTime));
+
+        // 소감 설정
+        setComment(diaryData.review || "");
+
+        // 이미지 설정
+        if (diaryData.imageUrl) {
+          setEscapeImages([diaryData.imageUrl]);
+        }
+      } catch (error) {
+        console.error("Error fetching diary:", error);
+        alert("일지 데이터를 불러오는데 실패했습니다.");
+      }
+    };
+
+    fetchDiary();
+  }, [unwrappedParams.id]);
+
+  // 시간 형식 변환 함수
+  const formatTime = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
 
   // 테마 검색 API 호출
   const searchThemes = async (keyword: string) => {
@@ -117,9 +186,7 @@ export default function NewDiaryPage() {
     try {
       setIsLoadingThemes(true);
       const response = await client.get(
-        `/api/v1/themes/search?keyword=${encodeURIComponent(
-          keyword
-        )}`,
+        `/api/v1/themes/search?keyword=${encodeURIComponent(keyword)}`,
         {
           headers: {
             "Content-Type": "application/json",
@@ -236,7 +303,7 @@ export default function NewDiaryPage() {
     }
   };
 
-  // 탈출일지 등록 API 호출
+  // 탈출일지 수정 API 호출
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -263,7 +330,7 @@ export default function NewDiaryPage() {
     }
 
     try {
-      // 1. 먼저 일지 등록
+      // 1. 일지 수정
       const diaryRequest: DiaryRequestDto = {
         themeId: parseInt(selectedTheme.id),
         escapeDate: date,
@@ -284,7 +351,7 @@ export default function NewDiaryPage() {
         review: comment,
       };
 
-      const diaryResponse = await client.post("/api/v1/diaries", diaryRequest, {
+      const diaryResponse = await client.put(`/api/v1/diaries/${unwrappedParams.id}`, diaryRequest, {
         withCredentials: true,
         headers: {
           "Content-Type": "application/json",
@@ -293,10 +360,8 @@ export default function NewDiaryPage() {
       });
 
       if (!diaryResponse.data?.data?.id) {
-        throw new Error("일지 등록에 실패했습니다.");
+        throw new Error("일지 수정에 실패했습니다.");
       }
-
-      const diaryId = diaryResponse.data.data.id;
 
       // 2. 이미지가 있는 경우 업로드
       if (uploadedFiles.length > 0) {
@@ -305,12 +370,12 @@ export default function NewDiaryPage() {
           formData.append("file", file);
           formData.append("target", "DIARY");
 
-          await client.post(`/api/v1/upload/image/${diaryId}`, formData, {
-            withCredentials: true,
+          await client.post(`/api/v1/upload/image/${unwrappedParams.id}`, formData, {
             headers: {
               "Content-Type": "multipart/form-data",
               Accept: "application/json",
             },
+            withCredentials: true,
           });
         }
       }
@@ -320,11 +385,11 @@ export default function NewDiaryPage() {
         // TODO: 수동 입력된 이미지 URL 처리 로직 추가
       }
 
-      alert("탈출일지가 성공적으로 등록되었습니다.");
+      alert("탈출일지가 성공적으로 수정되었습니다.");
       router.push("/my/diary");
     } catch (error) {
       console.error("Form submission error:", error);
-      alert("탈출일지 등록에 실패했습니다. 다시 시도해주세요.");
+      alert("탈출일지 수정에 실패했습니다. 다시 시도해주세요.");
     }
   };
 
@@ -391,7 +456,7 @@ export default function NewDiaryPage() {
   return (
     <main className="min-h-screen bg-gray-50">
       <div className="max-w-3xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-8 text-center">탈출일지 작성</h1>
+        <h1 className="text-2xl font-bold mb-8 text-center">탈출일지 수정</h1>
 
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* 섹션 1: 테마 선택 */}
@@ -764,7 +829,7 @@ export default function NewDiaryPage() {
               type="submit"
               className="px-8 py-3 bg-black text-white font-medium rounded-lg"
             >
-              일지 등록
+              일지 수정
             </button>
           </div>
         </form>

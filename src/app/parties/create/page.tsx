@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ThemeSearchModal } from "@/components/ThemeSearchModal";
 import { TimePickerModal } from "@/components/TimePickerModal";
 import axios from "axios";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { LoginMemberContext } from "@/stores/auth/loginMember";
 import client from "@/lib/backend/client";
 import { components } from "@/lib/backend/apiV1/schema";
@@ -46,11 +46,17 @@ interface ThemeInfo {
 
 export default function CreatePartyPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isLogin } = useContext(LoginMemberContext);
+  
+  // URL 파라미터에서 테마 정보 가져오기
+  const initialThemeId = searchParams.get('themeId');
+  const initialThemeName = searchParams.get('themeName');
+
   const [formData, setFormData] = useState<PartyFormData>({
     title: "",
-    themeName: "",
-    themeId: 0,
+    themeName: initialThemeName || "",
+    themeId: initialThemeId ? Number(initialThemeId) : 0,
     date: (() => {
       // 내일 날짜 계산
       const tomorrow = new Date();
@@ -224,6 +230,50 @@ export default function CreatePartyPage() {
     }));
   };
 
+  // 테마 선택 UI 렌더링 함수
+  const renderThemeSelection = () => {
+    if (initialThemeId && initialThemeName) {
+      // 테마가 이미 선택된 경우
+      return (
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={formData.themeName}
+            readOnly
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
+          />
+          <button
+            type="button"
+            onClick={() => setIsThemeSearchModalOpen(true)}
+            className="px-4 py-2 bg-[#FFB130] text-white rounded-lg hover:bg-[#FFB130]/90"
+          >
+            테마 변경
+          </button>
+        </div>
+      );
+    }
+
+    // 일반적인 테마 선택 UI
+    return (
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={formData.themeName}
+          readOnly
+          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
+          placeholder="테마를 선택해주세요"
+        />
+        <button
+          type="button"
+          onClick={() => setIsThemeSearchModalOpen(true)}
+          className="px-4 py-2 bg-[#FFB130] text-white rounded-lg hover:bg-[#FFB130]/90"
+        >
+          테마 검색
+        </button>
+      </div>
+    );
+  };
+
   return (
     <main className="bg-gray-50 min-h-screen">
 
@@ -263,22 +313,7 @@ export default function CreatePartyPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 모임 테마
               </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={formData.themeName}
-                  readOnly
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                  placeholder="테마를 선택해주세요"
-                />
-                <button
-                  type="button"
-                  onClick={() => setIsThemeSearchModalOpen(true)}
-                  className="px-4 py-2 bg-[#FFB130] text-white rounded-lg hover:bg-[#FFB130]/90"
-                >
-                  테마 검색
-                </button>
-              </div>
+              {renderThemeSelection()}
             </div>
 
             {/* 모임 날짜 */}
