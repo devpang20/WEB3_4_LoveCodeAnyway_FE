@@ -8,7 +8,6 @@ import { useParams, useRouter } from "next/navigation";
 import axios from "axios";
 import { LoginMemberContext } from "@/stores/auth/loginMember";
 import client from "@/lib/backend/client";
-import client from "@/lib/backend/client";
 import Script from "next/script";
 
 // 기본 이미지 경로
@@ -526,8 +525,6 @@ export default function PartyDetailPage() {
                             )}
                           </div>
                         </div>
-                        <Link
-                          href={`/profile/${member.id}`}
                         <Link
                           href={`/profile/${member.id}`}
                           className="text-xs text-blue-600 hover:underline"
