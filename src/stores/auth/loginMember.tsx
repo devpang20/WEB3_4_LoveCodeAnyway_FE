@@ -25,8 +25,8 @@ export const LoginMemberContext = createContext<{
     nickname: "",
     gender: "BLIND",
     introduction: "",
-    profilePictureUrl: "",
-    mannerScore: 0,
+    profilePictureUrl: undefined,
+    mannerScore: undefined,
   },
   setLoginMember: () => {},
   isLoginMemberPending: true,
@@ -41,8 +41,8 @@ function createEmptyMember(): Member {
     nickname: "",
     gender: "BLIND",
     introduction: "",
-    profilePictureUrl: "",
-    mannerScore: 0,
+    profilePictureUrl: undefined,
+    mannerScore: undefined,
   };
 }
 
@@ -69,7 +69,7 @@ export function useLoginMember() {
   const isLogin = loginMember && loginMember.id !== 0;
 
   const logout = (callback: () => void) => {
-    client.DELETE("/api/v1/members/logout").then(() => {
+    client.DELETE("/api/v1/members/logout", {}).then(() => {
       removeLoginMember();
       callback();
     });

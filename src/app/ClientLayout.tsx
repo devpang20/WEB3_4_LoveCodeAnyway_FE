@@ -39,7 +39,12 @@ export function ClientLayout({
           setNoLoginMember();
           return;
         }
-        setLoginMember(res.data);
+        // API 응답에서 data 필드의 멤버 정보를 추출
+        if (res.data && res.data.data) {
+          setLoginMember(res.data.data);
+        } else {
+          setNoLoginMember();
+        }
       })
       .catch((error) => {
         // 에러 발생 시 (302 포함) 로그인되지 않은 상태로 처리

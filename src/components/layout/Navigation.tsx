@@ -382,15 +382,15 @@ export function Navigation({ activePage }: { activePage?: string }) {
                             loginMember.profilePictureUrl ||
                             "/default-profile.svg"
                           }
-                          alt={loginMember.nickname}
+                          alt={loginMember.nickname || "프로필 이미지"}
                           className="w-full h-full object-cover"
                           width={32}
                           height={32}
                         />
                       )}
                     </div>
-                    <span className="text-gray-300 text-sm">
-                      {loginMember.nickname}
+                    <span className="text-gray-300 text-sm font-medium">
+                      {loginMember?.nickname || "사용자"}
                     </span>
                   </button>
 
