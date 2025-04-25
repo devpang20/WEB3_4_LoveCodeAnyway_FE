@@ -3,27 +3,21 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-
-// API 기본 URL 설정
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
-  ? process.env.NEXT_PUBLIC_API_URL
-  : process.env.NODE_ENV === "development"
-  ? "http://localhost:8080"
-  : "https://api.ddobang.site";
+import { client } from "@/lib/api/client";
 
 // 타입 정의
 type Inquiry = {
   id: number;
   type: string;
   title: string;
-  nickname: string;
+  answered: boolean;
+  hasAttachments: boolean;
   createdAt: string;
-  status: string;
 };
 
 export default function InquiryPage() {
   const [searchKeyword, setSearchKeyword] = useState("");
-  const [inquiryType, setInquiryType] = useState("전체");
+  const [inquiryType, setInquiryType] = useState("ALL");
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -35,91 +29,32 @@ export default function InquiryPage() {
   const fetchInquiries = async () => {
     try {
       setIsLoading(true);
-
-      // API 호출 코드 주석 처리
-      /*
-      const response = await axios.get(`${API_BASE_URL}/api/v1/boards`, {
+      const response = await client.get("/api/v1/boards", {
         params: {
-          page: currentPage,
-          type: inquiryType === "전체" ? undefined : inquiryType,
+          page: currentPage - 1, // 백엔드는 0-based 페이지네이션 사용
+          size: 10,
+          type: inquiryType === "ALL" ? undefined : inquiryType,
           keyword: searchKeyword || undefined,
         },
         withCredentials: true,
       });
 
-      setInquiries(response.data.data.content);
-      setTotalPages(response.data.data.totalPages);
-      */
+      console.log('API Response:', response.data); // 디버깅을 위한 로그
 
-      // 가데이터로 대체
-      const mockInquiries: Inquiry[] = [
-        {
-          id: 1,
-          type: "사이트 이용 문의",
-          title: "회원가입 관련 문의드립니다",
-          nickname: "사용자1",
-          createdAt: "2023-06-15",
-          status: "답변완료",
-        },
-        {
-          id: 2,
-          type: "유지 보수",
-          title: "페이지 로딩이 느려요",
-          nickname: "사용자2",
-          createdAt: "2023-06-14",
-          status: "대기중",
-        },
-        {
-          id: 3,
-          type: "테마등록요청",
-          title: "새로운 테마 등록 요청드립니다",
-          nickname: "사용자3",
-          createdAt: "2023-06-12",
-          status: "답변완료",
-        },
-        {
-          id: 4,
-          type: "사이트 이용 문의",
-          title: "비밀번호 변경 방법이 궁금합니다",
-          nickname: "사용자4",
-          createdAt: "2023-06-10",
-          status: "대기중",
-        },
-        {
-          id: 5,
-          type: "유지 보수",
-          title: "모바일에서 접속 시 오류가 발생합니다",
-          nickname: "사용자5",
-          createdAt: "2023-06-08",
-          status: "답변완료",
-        },
-      ];
-
-      // 검색 및 필터링 적용
-      let filteredInquiries = mockInquiries;
-
-      // 문의 유형 필터링
-      if (inquiryType !== "전체") {
-        filteredInquiries = filteredInquiries.filter(
-          (inquiry) => inquiry.type === inquiryType
-        );
+      if (response.data && response.data.data) {
+        const { items, totalPages, currentPageNumber } = response.data.data;
+        setInquiries(items || []);
+        setTotalPages(totalPages || 1);
+        setCurrentPage(currentPageNumber || 1);
+      } else {
+        setInquiries([]);
+        setTotalPages(1);
       }
-
-      // 검색어 필터링
-      if (searchKeyword) {
-        const keyword = searchKeyword.toLowerCase();
-        filteredInquiries = filteredInquiries.filter(
-          (inquiry) =>
-            inquiry.title.toLowerCase().includes(keyword) ||
-            inquiry.nickname.toLowerCase().includes(keyword)
-        );
-      }
-
-      setInquiries(filteredInquiries);
-      setTotalPages(Math.ceil(filteredInquiries.length / 5)); // 페이지당 5개 항목 기준
     } catch (error) {
       console.error("문의 목록 로딩 에러:", error);
       setError("문의 목록을 불러오는데 실패했습니다.");
+      setInquiries([]);
+      setTotalPages(1);
     } finally {
       setIsLoading(false);
     }
@@ -164,10 +99,10 @@ export default function InquiryPage() {
               value={inquiryType}
               onChange={(e) => setInquiryType(e.target.value)}
             >
-              <option>전체</option>
-              <option>사이트 이용 문의</option>
-              <option>유지 보수</option>
-              <option>테마등록요청</option>
+              <option value="ALL">전체</option>
+              <option value="QNA">사이트 이용 문의</option>
+              <option value="REPORT">신고</option>
+              <option value="THEME">테마 관련</option>
             </select>
             <div className="relative">
               <input
@@ -233,7 +168,7 @@ export default function InquiryPage() {
             <div className="col-span-1 text-center">번호</div>
             <div className="col-span-2">분류</div>
             <div className="col-span-4">제목</div>
-            <div className="col-span-2 text-center">작성자</div>
+            <div className="col-span-2 text-center">첨부파일</div>
             <div className="col-span-2 text-center">작성일</div>
             <div className="col-span-1 text-center">상태</div>
           </div>
@@ -248,20 +183,22 @@ export default function InquiryPage() {
                 <div className="col-span-1 text-center">{inquiry.id}</div>
                 <div className="col-span-2">{inquiry.type}</div>
                 <div className="col-span-4">{inquiry.title}</div>
-                <div className="col-span-2 text-center">{inquiry.nickname}</div>
                 <div className="col-span-2 text-center">
-                  {inquiry.createdAt}
+                  {inquiry.hasAttachments ? "있음" : "없음"}
+                </div>
+                <div className="col-span-2 text-center">
+                  {new Date(inquiry.createdAt).toLocaleDateString()}
                 </div>
                 <div className="col-span-1 text-center">
                   <span
                     className={`inline-block px-2 py-1 rounded-full text-xs
                       ${
-                        inquiry.status === "답변완료"
+                        inquiry.answered
                           ? "bg-green-100 text-green-800"
                           : "bg-yellow-100 text-yellow-800"
                       }`}
                   >
-                    {inquiry.status}
+                    {inquiry.answered ? "답변완료" : "대기중"}
                   </span>
                 </div>
               </div>

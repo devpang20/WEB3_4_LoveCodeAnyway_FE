@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import client from "@/lib/backend/client";
@@ -32,14 +32,63 @@ const inquiryTypes = [
   "테마 관련",
 ];
 
-export default function NewInquiryPage() {
+interface InquiryDetail {
+  id: number;
+  type: "QNA" | "REPORT" | "THEME";
+  title: string;
+  content: string;
+  attachments: {
+    id: number;
+    fileName: string;
+  }[];
+}
+
+export default function EditInquiryPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [inquiryType, setInquiryType] = useState("");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [existingFiles, setExistingFiles] = useState<{ id: number; fileName: string }[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const inquiryId = Number(params.id);
+
+  useEffect(() => {
+    const fetchInquiryDetail = async () => {
+      try {
+        setIsLoading(true);
+        const response = await client.GET("/api/v1/boards/{id}", {
+          params: {
+            path: {
+              id: inquiryId,
+            },
+          },
+        });
+
+        if (response.data?.data) {
+          const data = response.data.data as InquiryDetail;
+          setInquiryType(
+            data.type === "QNA" ? "사이트 이용 문의" :
+            data.type === "REPORT" ? "신고" : "테마 관련"
+          );
+          setTitle(data.title);
+          setContent(data.content);
+          setExistingFiles(data.attachments);
+        } else {
+          setError("해당 문의를 찾을 수 없습니다.");
+        }
+      } catch (error) {
+        console.error("문의 상세 조회 에러:", error);
+        setError("문의 내용을 불러오는데 실패했습니다.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchInquiryDetail();
+  }, [inquiryId]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -74,21 +123,24 @@ export default function NewInquiryPage() {
       setIsSubmitting(true);
       setError(null);
 
-      // 1. 문의 등록
-      const postResponse = await client.POST("/api/v1/boards", {
+      // 1. 문의 수정
+      const putResponse = await client.PUT("/api/v1/boards/{id}", {
+        params: {
+          path: {
+            id: inquiryId,
+          },
+        },
         body: {
           type: inquiryTypeMap[inquiryType as keyof typeof inquiryTypeMap],
           title,
           content,
-          attachments: [], // 초기에는 빈 배열로 보냄
+          attachments: existingFiles.map(file => file.id),
         },
       });
 
-      if (!postResponse.data?.data?.id) {
-        throw new Error("문의 등록에 실패했습니다.");
+      if (!putResponse.data?.data?.id) {
+        throw new Error("문의 수정에 실패했습니다.");
       }
-
-      const postId = postResponse.data.data.id;
 
       // 2. 파일이 있는 경우 첨부파일 업로드
       if (files.length > 0) {
@@ -100,28 +152,44 @@ export default function NewInquiryPage() {
         await client.POST("/api/v1/upload/attachment/{postId}", {
           params: {
             path: {
-              postId,
+              postId: inquiryId,
             },
           },
-          body: formData,
+          body: formData as any,
         });
       }
 
       router.push("/my/inquiry");
     } catch (error) {
-      console.error("문의 등록 에러:", error);
-      setError("문의 등록에 실패했습니다. 다시 시도해주세요.");
+      console.error("문의 수정 에러:", error);
+      setError("문의 수정에 실패했습니다. 다시 시도해주세요.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-red-500">{error}</div>
+      </div>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-white">
       <div className="max-w-3xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-8">문의하기</h1>
+        <h1 className="text-2xl font-bold mb-8">문의 수정</h1>
         <p className="text-gray-600 mb-8">
-          아래 양식을 작성하여 문의사항을 등록해주세요.
+          아래 양식을 수정하여 문의사항을 업데이트해주세요.
         </p>
 
         {error && (
@@ -219,10 +287,15 @@ export default function NewInquiryPage() {
                 </p>
               </label>
             </div>
-            {files.length > 0 && (
+            {(files.length > 0 || existingFiles.length > 0) && (
               <div className="mt-4">
                 <p className="text-sm font-medium mb-2">선택된 파일:</p>
                 <ul className="space-y-2">
+                  {existingFiles.map((file) => (
+                    <li key={file.id} className="text-sm text-gray-600">
+                      {file.fileName} (기존 파일)
+                    </li>
+                  ))}
                   {files.map((file, index) => (
                     <li key={index} className="text-sm text-gray-600">
                       {file.name} ({(file.size / 1024 / 1024).toFixed(2)}MB)
@@ -236,7 +309,7 @@ export default function NewInquiryPage() {
           {/* 버튼 */}
           <div className="flex justify-end gap-4 pt-4">
             <Link
-              href="/my/inquiry"
+              href={`/my/inquiry/${inquiryId}`}
               className="px-6 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
             >
               취소
@@ -244,10 +317,11 @@ export default function NewInquiryPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`px-6 py-2 text-white bg-black rounded-lg hover:bg-gray-800 ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""
-                }`}
+              className={`px-6 py-2 text-white bg-black rounded-lg hover:bg-gray-800 ${
+                isSubmitting ? "opacity-50 cursor-not-allowed" : ""
+              }`}
             >
-              {isSubmitting ? "등록 중..." : "등록하기"}
+              {isSubmitting ? "수정 중..." : "수정하기"}
             </button>
           </div>
         </form>
