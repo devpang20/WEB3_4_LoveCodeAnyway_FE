@@ -5,6 +5,7 @@ import { useGlobalLoginMember } from "@/stores/auth/loginMember";
 import client from "@/lib/backend/client";
 import { AlarmResponse, AlarmType } from "@/types/alarm";
 import { NotificationContext } from "@/app/ClientLayout";
+import { useRouter } from "next/navigation";
 
 interface PageDto<T> {
   items: T[];
@@ -19,6 +20,7 @@ interface NotificationProps {
 }
 
 export function Notification({ onNewNotification }: NotificationProps) {
+  const router = useRouter();
   const { isLogin } = useGlobalLoginMember();
   const { setUnreadCount } = useContext(NotificationContext);
   const [alarms, setAlarms] = useState<AlarmResponse[]>([]);
@@ -51,9 +53,12 @@ export function Notification({ onNewNotification }: NotificationProps) {
   };
 
   useEffect(() => {
-    fetchAlarms(page);
-    checkUnreadCount();
-  }, [page, isLogin]);
+    if (isLogin) {
+      fetchAlarms(0);
+      checkUnreadCount();
+      setPage(0);
+    }
+  }, [isLogin]);
 
   const markAsRead = async (id: number) => {
     try {
@@ -109,6 +114,58 @@ export function Notification({ onNewNotification }: NotificationProps) {
     setPage(newPage);
   };
 
+  const handleAlarmClick = async (alarm: AlarmResponse) => {
+    try {
+      // 알림 읽음 처리
+      await client.PATCH("/alarms/{id}/read", {
+        params: {
+          path: {
+            id: alarm.id
+          }
+        }
+      });
+
+      // 알림 상태 업데이트
+      setAlarms(prev => 
+        prev.map(a => 
+          a.id === alarm.id ? { ...a, readStatus: true } : a
+        )
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
+
+      const response = await client.GET("/alarms/{id}/redirect", {
+        params: {
+          path: {
+            id: alarm.id
+          }
+        }
+      });
+
+      if (response.data?.data) {
+        const redirectUrl = response.data.data as string;
+        router.push(redirectUrl);
+      }
+    } catch (error) {
+      console.error("알림 처리 실패:", error);
+    }
+  };
+
+  // 알림 삭제 함수
+  const handleDeleteAlarm = async (alarmId: number) => {
+    try {
+      await client.DELETE("/alarms/{id}", {
+        params: {
+          path: {
+            id: alarmId
+          }
+        }
+      });
+      setAlarms(prev => prev.filter(a => a.id !== alarmId));
+    } catch (error) {
+      console.error("알림 삭제 실패:", error);
+    }
+  };
+
   if (!isLogin) {
     return null;
   }
@@ -132,7 +189,8 @@ export function Notification({ onNewNotification }: NotificationProps) {
                   key={alarm.id}
                   className={`px-4 py-3 border-b border-gray-100 ${
                     !alarm.readStatus ? "bg-[#FFE4C4]" : ""
-                  }`}
+                  } cursor-pointer hover:bg-gray-50`}
+                  onClick={() => handleAlarmClick(alarm)}
                 >
                   <div className="flex items-start">
                     <div className="flex-1">
@@ -143,7 +201,17 @@ export function Notification({ onNewNotification }: NotificationProps) {
                               ? "bg-orange-100 text-orange-600"
                               : alarm.alarmType === AlarmType.MESSAGE
                               ? "bg-blue-100 text-blue-600"
-                              : "bg-green-100 text-green-600"
+                              : alarm.alarmType === AlarmType.SUBSCRIBE
+                              ? "bg-green-100 text-green-600"
+                              : alarm.alarmType === AlarmType.PARTY_APPLY
+                              ? "bg-purple-100 text-purple-600"
+                              : alarm.alarmType === AlarmType.PARTY_STATUS
+                              ? "bg-indigo-100 text-indigo-600"
+                              : alarm.alarmType === AlarmType.ANSWER_COMMENT
+                              ? "bg-pink-100 text-pink-600"
+                              : alarm.alarmType === AlarmType.POST_REPLY
+                              ? "bg-teal-100 text-teal-600"
+                              : "bg-gray-100 text-gray-600"
                           }`}
                         >
                           {alarm.alarmType === AlarmType.SYSTEM
@@ -151,10 +219,64 @@ export function Notification({ onNewNotification }: NotificationProps) {
                             : alarm.alarmType === AlarmType.MESSAGE
                             ? "메시지"
                             : alarm.alarmType === AlarmType.SUBSCRIBE
-                            ? "모임"
+                            ? "구독"
+                            : alarm.alarmType === AlarmType.PARTY_APPLY
+                            ? "모임신청"
+                            : alarm.alarmType === AlarmType.PARTY_STATUS
+                            ? "모임상태"
+                            : alarm.alarmType === AlarmType.ANSWER_COMMENT
+                            ? "답변"
+                            : alarm.alarmType === AlarmType.POST_REPLY
+                            ? "문의답변"
                             : "기타"}
                         </span>
-                        <span className="ml-auto text-xs text-gray-400">
+                        <span className="ml-auto flex items-center gap-1">
+                          {alarm.readStatus ? (
+                            <span className="text-[#FFB230] text-xs flex items-center">
+                              <svg
+                                className="w-4 h-4 mr-1"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  d="M5 13l4 4L19 7"
+                                />
+                              </svg>
+                              읽음
+                            </span>
+                          ) : null}
+                          <button
+                            onClick={e => {
+                              e.stopPropagation();
+                              handleDeleteAlarm(alarm.id);
+                            }}
+                            className="ml-1 text-gray-400 hover:text-red-500 text-xs"
+                            title="알림 삭제"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M6 18L18 6M6 6l12 12"
+                              />
+                            </svg>
+                          </button>
+                        </span>
+                      </div>
+                      <h4 className="font-medium mt-1">{alarm.title}</h4>
+                      <p className="text-sm text-gray-500 mt-1">{alarm.content}</p>
+                      <div className="flex justify-end mt-2">
+                        <span className="text-xs text-gray-400">
                           {new Date(alarm.createdAt).toLocaleDateString("ko-KR", {
                             year: "numeric",
                             month: "long",
@@ -164,32 +286,6 @@ export function Notification({ onNewNotification }: NotificationProps) {
                           })}
                         </span>
                       </div>
-                      <h4 className="font-medium mt-1">{alarm.title}</h4>
-                      <p className="text-sm text-gray-500 mt-1">{alarm.content}</p>
-
-                      {alarm.readStatus && (
-                        <div className="flex justify-end mt-1">
-                          <button
-                            onClick={() => markAsRead(alarm.id)}
-                            className="text-[#FFB230] text-xs flex items-center"
-                          >
-                            <svg
-                              className="w-4 h-4 mr-1"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                            읽음
-                          </button>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>

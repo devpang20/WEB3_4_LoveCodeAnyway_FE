@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useGlobalLoginMember } from "@/stores/auth/loginMember";
 import client from "@/lib/backend/client";
+import { useSearchParams } from "next/navigation";
 
 // Message 타입 정의
 type Message = {
@@ -41,6 +42,8 @@ export default function MessagesPage() {
   const [error, setError] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const searchParams = useSearchParams();
+  const messageId = searchParams.get("messageId");
 
   // 메시지 데이터 가져오기
   const fetchMessages = async (newCursor: string | null = null) => {
@@ -95,6 +98,16 @@ export default function MessagesPage() {
       fetchMessages();
     }
   }, [activeTab, loginMember]);
+
+  // URL에서 messageId가 제공된 경우 해당 메시지를 찾아서 열기
+  useEffect(() => {
+    if (messageId && messages.length > 0) {
+      const targetMessage = messages.find(msg => msg.id === Number(messageId));
+      if (targetMessage) {
+        handleOpenMessage(targetMessage);
+      }
+    }
+  }, [messageId, messages]);
 
   // 전체 선택 핸들러
   const handleSelectAll = () => {
@@ -177,6 +190,17 @@ export default function MessagesPage() {
   // 모달 닫기 핸들러
   const handleCloseModal = () => {
     setIsModalOpen(false);
+    setSelectedMessage(null);
+    // URL에서 messageId 파라미터 제거
+    const url = new URL(window.location.href);
+    url.searchParams.delete("messageId");
+    window.history.replaceState({}, "", url.toString());
+  };
+
+  // 답장 모달 닫기 핸들러
+  const handleCloseReplyModal = () => {
+    setIsReplyModalOpen(false);
+    setReplyContent("");
   };
 
   // 날짜 포맷 함수
@@ -446,6 +470,7 @@ export default function MessagesPage() {
           <div
             className="fixed inset-0"
             style={{ backgroundColor: "#3D3D3D", opacity: "0.6" }}
+            onClick={handleCloseModal}
           ></div>
           <div className="bg-gray-800 rounded-lg w-full max-w-md p-6 shadow-lg relative z-10">
             <div className="flex justify-between items-center mb-4">
@@ -521,12 +546,13 @@ export default function MessagesPage() {
           <div
             className="fixed inset-0"
             style={{ backgroundColor: "#3D3D3D", opacity: "0.6" }}
+            onClick={handleCloseReplyModal}
           ></div>
           <div className="bg-gray-800 rounded-lg w-full max-w-md p-6 shadow-lg relative z-10">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-white">답장 하기</h3>
               <button
-                onClick={() => setIsReplyModalOpen(false)}
+                onClick={handleCloseReplyModal}
                 className="text-gray-400 hover:text-gray-300"
               >
                 <svg
@@ -568,10 +594,7 @@ export default function MessagesPage() {
 
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => {
-                  setIsReplyModalOpen(false);
-                  setReplyContent("");
-                }}
+                onClick={handleCloseReplyModal}
                 className="px-4 py-2 border border-gray-700 rounded-md text-gray-300 hover:bg-gray-700"
               >
                 닫기
