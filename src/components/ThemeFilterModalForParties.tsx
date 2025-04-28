@@ -1,15 +1,25 @@
 import { useState, useEffect } from "react";
 import { Calendar } from "./Calendar";
 import { format } from "date-fns";
+import client from "@/lib/backend/client";
 
 interface Tag {
   id: number;
   name: string;
 }
 
+interface SubRegionsResponse {
+  id: number;
+  subRegion: string;
+}
+
 interface Region {
   id: number;
   subRegion: string;
+}
+
+interface ApiResponse<T> {
+  data: T;
 }
 
 interface ThemeFilterModalProps {
@@ -33,7 +43,7 @@ export function ThemeFilterModalForParties({
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
 
   const majorRegions = [
-    { id: 1, name: "서울" },
+    { id: "서울", name: "서울" },
     { id: "경기/인천", name: "경기/인천" },
     { id: "충청", name: "충청" },
     { id: "경상", name: "경상" },
@@ -52,20 +62,20 @@ export function ThemeFilterModalForParties({
   const fetchRegions = async () => {
     setLoadingRegions(true);
     try {
-      const response = await fetch(
-        `${
-          process.env.NODE_ENV === "development"
-            ? "http://localhost:8080"
-            : "https://api.ddobang.site"
-        }/api/v1/regions?majorRegion=서울`,
-        {
-          credentials: "include",
+      const response = await client.GET("/api/v1/regions", {
+        params: {
+          query: {
+            majorRegion: activeRegion
+          }
         }
-      );
-      const data = await response.json();
+      });
 
-      if (data && data.data) {
-        setRegions(data.data);
+      if (response?.data?.data) {
+        const regionsData: Region[] = response.data.data.map((item: any) => ({
+          id: Number(item.id),
+          subRegion: String(item.subRegion)
+        }));
+        setRegions(regionsData);
       }
     } catch (error) {
       console.error("지역 목록을 불러오는 중 오류가 발생했습니다:", error);
@@ -77,20 +87,13 @@ export function ThemeFilterModalForParties({
   const fetchTags = async () => {
     setLoading(true);
     try {
-      const response = await fetch(
-        `${
-          process.env.NODE_ENV === "development"
-            ? "http://localhost:8080"
-            : "https://api.ddobang.site"
-        }/api/v1/themes/tags`,
-        {
-          credentials: "include",
-        }
-      );
-      const data = await response.json();
-
-      if (data && data.data) {
-        setTags(data.data);
+      const response = await client.GET("/api/v1/themes/tags");
+      if (response?.data?.data) {
+        const tagsData: Tag[] = response.data.data.map((item: any) => ({
+          id: Number(item.id),
+          name: String(item.name)
+        }));
+        setTags(tagsData);
       }
     } catch (error) {
       console.error("태그 목록을 불러오는 중 오류가 발생했습니다:", error);
@@ -99,11 +102,11 @@ export function ThemeFilterModalForParties({
     }
   };
 
-  const handleRegionToggle = (region: string) => {
+  const handleRegionToggle = (regionId: number) => {
     setSelectedRegions((prev) =>
-      prev.includes(region)
-        ? prev.filter((r) => r !== region)
-        : [...prev, region]
+      prev.includes(regionId.toString())
+        ? prev.filter((r) => r !== regionId.toString())
+        : [...prev, regionId.toString()]
     );
   };
 
@@ -115,28 +118,7 @@ export function ThemeFilterModalForParties({
 
   const handleRegionClick = async (majorRegion: string) => {
     setActiveRegion(majorRegion);
-    setLoadingRegions(true);
-    try {
-      const response = await fetch(
-        `${
-          process.env.NODE_ENV === "development"
-            ? "http://localhost:8080"
-            : "https://api.ddobang.site"
-        }/api/v1/regions?majorRegion=${majorRegion}`,
-        {
-          credentials: "include",
-        }
-      );
-      const data = await response.json();
-
-      if (data && data.data) {
-        setRegions(data.data);
-      }
-    } catch (error) {
-      console.error("지역 목록을 불러오는 중 오류가 발생했습니다:", error);
-    } finally {
-      setLoadingRegions(false);
-    }
+    await fetchRegions();
   };
 
   const handleDateSelect = (date: Date) => {
@@ -290,12 +272,12 @@ export function ThemeFilterModalForParties({
                           <div className="relative flex items-center">
                             <input
                               type="checkbox"
-                              id={region.subRegion}
+                              id={region.id.toString()}
                               checked={selectedRegions.includes(
-                                region.subRegion
+                                region.id.toString()
                               )}
                               onChange={() =>
-                                handleRegionToggle(region.subRegion)
+                                handleRegionToggle(region.id)
                               }
                               className="peer w-4 h-4 rounded border border-gray-600 text-[#FFB230] focus:ring-[#FFB230] focus:ring-2 focus:ring-offset-2 cursor-pointer appearance-none checked:bg-[#FFB230] checked:border-[#FFB230] transition-colors"
                             />
@@ -311,9 +293,9 @@ export function ThemeFilterModalForParties({
                               />
                             </svg>
                             <label
-                              htmlFor={region.subRegion}
+                              htmlFor={region.id.toString()}
                               className={`ml-2 text-sm cursor-pointer select-none ${
-                                selectedRegions.includes(region.subRegion)
+                                selectedRegions.includes(region.id.toString())
                                   ? "text-[#FFB230] font-medium"
                                   : "text-gray-300 group-hover:text-gray-200"
                               }`}

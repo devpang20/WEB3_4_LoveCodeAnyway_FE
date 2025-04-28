@@ -88,7 +88,7 @@ export default function PartiesPage() {
 
       const searchCondition = {
         keyword: searchKeyword || "",
-        regionIds: [],
+        regionIds: filterRegions.length > 0 ? filterRegions.map(id => parseInt(id)) : [],
         dates: filterDates,
         tagsIds: filterGenres.length > 0 ? filterGenres.map(id => parseInt(id)) : []
       };
@@ -201,6 +201,9 @@ export default function PartiesPage() {
     } else {
       setFilterDates([]);
     }
+
+    // 필터 설정 후 바로 API 요청
+    loadParties(true);
   };
 
   // 카드 클릭 처리
