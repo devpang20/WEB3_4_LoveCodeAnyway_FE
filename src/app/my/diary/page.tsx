@@ -132,7 +132,7 @@ export default function DiaryPage() {
       const response = await client.post("/api/v1/diaries/list", currentFilter, {
         params: {
           page: page - 1,
-          size: 10,
+          pageSize: 12,
         },
         // data: currentFilter,
         withCredentials: true,

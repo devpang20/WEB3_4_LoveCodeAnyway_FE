@@ -7,6 +7,7 @@ import { StarRating } from "@/components/StarRating";
 import Image from "next/image";
 import { PageLoading } from "@/components/PageLoading";
 import client from "@/lib/backend/client";
+import { KakaoMap } from "@/components/KakaoMap";
 
 // API 응답 타입과 일치하는 인터페이스
 interface ThemeDetailResponse {
@@ -118,6 +119,7 @@ export default function ThemeDetailPage() {
         const response = await client.GET(`/api/v1/themes/${themeId}`);
 
         if (response?.data?.data) {
+          console.log(response.data.data);
           setThemeDetail(response.data.data);
         } else {
           throw new Error("응답 데이터가 올바르지 않습니다.");
@@ -335,6 +337,7 @@ export default function ThemeDetailPage() {
             </div>
           </div>
         </div>
+        
 
         {/* 섹션 2: 설명 및 위치 */}
         <section className="bg-gray-800 rounded-2xl p-8 mb-8 shadow-sm">
@@ -349,17 +352,10 @@ export default function ThemeDetailPage() {
               <div className="w-full md:w-1/2">
                 <h2 className="text-2xl font-bold mb-4 text-white">매장 위치</h2>
                 <div className="h-64 bg-gray-700 rounded-lg mb-4 relative">
-                  {/* 고정 이미지 사용 */}
-                  <Image
-                    src="https://i.postimg.cc/L5Q5s78R/image.png"
-                    alt={`${themeDetail.storeInfo.name} 지도`}
-                    fill
-                    className="object-cover rounded-lg"
-                    unoptimized
+                  <KakaoMap 
+                    address={themeDetail.storeInfo.address || ""} 
+                    storeName={themeDetail.storeInfo.name}
                   />
-                  <div className="absolute bottom-2 right-2 bg-gray-900 px-2 py-1 rounded shadow text-xs text-white">
-                    {themeDetail.storeInfo.name || ""}
-                  </div>
                 </div>
                 <div className="space-y-2">
                   <p className="text-gray-300">

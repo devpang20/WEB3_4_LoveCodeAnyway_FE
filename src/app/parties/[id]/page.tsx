@@ -8,6 +8,7 @@ import axios from "axios";
 import { LoginMemberContext } from "@/stores/auth/loginMember";
 import client from "@/lib/backend/client";
 import UserProfileModal from "@/components/UserProfileModal";
+import { KakaoMap } from "@/components/KakaoMap";
 
 // 기본 이미지 경로
 const DEFAULT_PROFILE_IMAGE = "/profile_default.jpg";
@@ -734,16 +735,13 @@ export default function PartyDetailPage() {
 
               {/* 고정 지도 이미지 사용 */}
               <div className="w-full h-80 bg-gray-700 rounded-lg relative">
-                <Image
-                  src="https://i.postimg.cc/L5Q5s78R/image.png"
-                  alt={`${partyData.storeName} 지도`}
-                  fill
-                  className="object-cover rounded-lg"
-                  unoptimized
+                <KakaoMap
+                  width="100%"
+                  height="320px"
+                  address={partyData.storeAddress || ""}
+                  storeName={partyData.storeName}
+                  name={partyData.storeName}
                 />
-                <div className="absolute bottom-2 right-2 bg-gray-800 px-2 py-1 rounded shadow text-xs text-white">
-                  {partyData.storeName || ""}
-                </div>
               </div>
             </div>
           </div>

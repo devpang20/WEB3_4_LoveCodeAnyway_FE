@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ClientLayout } from "@/app/ClientLayout";
-import Script from "next/script";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -49,11 +48,6 @@ export default function RootLayout({
         />
         <meta httpEquiv="Pragma" content="no-cache" />
         <meta httpEquiv="Expires" content="0" />
-        <Script
-          type="text/javascript"
-          src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=77ce24857d8f159f2e489d04af098480&libraries=services"
-          strategy="beforeInteractive"
-        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
