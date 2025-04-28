@@ -385,6 +385,7 @@ export default function NewDiaryPage() {
   // 새 테마 등록 핸들러
   const handleThemeCreated = (theme: { id: string; name: string; storeName: string }) => {
     setSelectedTheme(theme);
+    setIsNewThemeModalOpen(false);
   };
 
   // ==================== 렌더링 ====================

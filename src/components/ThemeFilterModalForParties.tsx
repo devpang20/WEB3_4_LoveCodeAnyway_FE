@@ -33,7 +33,7 @@ export function ThemeFilterModalForParties({
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
 
   const majorRegions = [
-    { id: "서울", name: "서울" },
+    { id: 1, name: "서울" },
     { id: "경기/인천", name: "경기/인천" },
     { id: "충청", name: "충청" },
     { id: "경상", name: "경상" },
@@ -162,12 +162,15 @@ export function ThemeFilterModalForParties({
   const handleApply = () => {
     const filters = {
       regions: selectedRegions,
-      genres: selectedGenres.map(tagId => {
-        const tag = tags.find(t => t.id === tagId);
-        return tag ? tag.name : "";
-      }).filter(Boolean),
+      genres: selectedGenres,
       dates: selectedDates.map(date => format(date, "yyyy. M. d.")),
     };
+    console.log("필터 적용 - 전달되는 값:", {
+      regions: selectedRegions,
+      genres: selectedGenres,
+      dates: selectedDates,
+      formattedFilters: filters
+    });
     onApply(filters);
     onClose();
   };

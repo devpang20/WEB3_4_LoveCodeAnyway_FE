@@ -61,11 +61,12 @@ export function NewThemesModal({ isOpen, onClose, onThemeCreated }: NewThemesMod
         }
       );
 
-      if (response.status === 200) {
+      if (response.status === 201) {
         const newTheme = response.data.data;
+        console.log('테마 등록 성공:', newTheme);
         onThemeCreated({
-          id: newTheme.id.toString(),
-          name: newTheme.name,
+          id: newTheme.themeId.toString(),
+          name: newTheme.themeName,
           storeName: newTheme.storeName,
         });
         onClose();
@@ -94,7 +95,7 @@ export function NewThemesModal({ isOpen, onClose, onThemeCreated }: NewThemesMod
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold">새 테마 등록</h2>
           <button
-            onClick={onClose}
+            onClick={() => { console.log('모달 닫힘'); onClose(); }}
             className="text-gray-400 hover:text-gray-500"
           >
             <XMarkIcon className="h-6 w-6" />

@@ -12,8 +12,9 @@ interface ThemeSearchModalProps {
 
 interface SimpleThemeResponse {
   themeId: number;
-  themeName: string;
+  name: string;
   storeName: string;
+  tags: string[];
 }
 
 interface SuccessResponseListSimpleThemeResponse {
@@ -36,11 +37,6 @@ export function ThemeSearchModal({
 
     // 모달이 열릴 때 테마 목록 초기화
     const fetchThemes = async () => {
-      if (!searchTerm.trim()) {
-        setThemes([]);
-        return;
-      }
-
       setLoading(true);
       setError(null);
 
@@ -70,7 +66,7 @@ export function ThemeSearchModal({
   }, [isOpen, searchTerm]);
 
   const handleThemeSelect = (theme: SimpleThemeResponse) => {
-    onSelect(theme.themeName, theme.themeId);
+    onSelect(theme.name, theme.themeId);
     onClose();
   };
 
@@ -130,15 +126,9 @@ export function ThemeSearchModal({
 
         {error && <div className="text-red-500 text-center my-4">{error}</div>}
 
-        {!loading && !searchTerm.trim() && (
+        {!loading && themes.length === 0 && (
           <div className="text-gray-500 text-center my-4">
-            검색어를 입력해주세요
-          </div>
-        )}
-
-        {!loading && searchTerm.trim() && themes.length === 0 && (
-          <div className="text-gray-500 text-center my-4">
-            검색 결과가 없습니다
+            등록된 테마가 없습니다
           </div>
         )}
 
@@ -149,9 +139,14 @@ export function ThemeSearchModal({
               onClick={() => handleThemeSelect(theme)}
               className="w-full text-left px-4 py-2 hover:bg-gray-100 rounded-lg"
             >
-              <div className="font-medium">{theme.themeName}</div>
+              <div className="font-medium">{theme.name}</div>
               {theme.storeName && (
                 <div className="text-sm text-gray-600">{theme.storeName}</div>
+              )}
+              {theme.tags && theme.tags.length > 0 && (
+                <div className="text-xs text-gray-500 mt-1">
+                  {theme.tags.join(", ")}
+                </div>
               )}
             </button>
           ))}

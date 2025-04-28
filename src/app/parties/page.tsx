@@ -87,10 +87,10 @@ export default function PartiesPage() {
       const lastId = reset ? undefined : lastParty?.partyId;
 
       const searchCondition = {
-        keyword: searchKeyword,
-        regionIds: filterRegions.length > 0 ? filterRegions.map(id => parseInt(id)) : undefined,
-        themeId: searchParams.get('themeId') ? parseInt(searchParams.get('themeId')!) : undefined,
-        dates: filterDates.length > 0 ? filterDates : undefined,
+        keyword: searchKeyword || "",
+        regionIds: [],
+        dates: filterDates,
+        tagsIds: filterGenres.length > 0 ? filterGenres.map(id => parseInt(id)) : []
       };
 
       const response = await client.POST("/api/v1/parties/search", {
@@ -133,6 +133,13 @@ export default function PartiesPage() {
     loadParties(true);
   }, []);
 
+  // 필터 상태가 변경될 때마다 API 요청
+  useEffect(() => {
+    if (!initialLoading) {
+      loadParties(true);
+    }
+  }, [searchKeyword, filterRegions, filterGenres, filterDates]);
+
   // 더미 데이터 생성 함수
   const generateDummyParties = () => {
     return Array(8).fill(0).map((_, index) => ({
@@ -156,6 +163,12 @@ export default function PartiesPage() {
     loadParties(true); // 검색어가 변경되면 데이터 리셋 후 다시 로드
   };
 
+  // 한국어 날짜를 ISO 형식으로 변환하는 함수
+  const convertToISODate = (koreanDate: string): string => {
+    const [year, month, day] = koreanDate.replace(/\./g, '').split(' ').map(Number);
+    return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+  };
+
   // 필터 처리
   const handleFilterChange = (filterType: string, value: string) => {
     if (filterType === "region") {
@@ -166,6 +179,8 @@ export default function PartiesPage() {
 
   // 필터 적용 처리
   const handleFilterApply = (filters: any) => {
+    console.log("페이지에서 받은 필터 값:", filters);
+    
     // 지역 필터 처리
     if (filters.regions && filters.regions.length > 0) {
       setFilterRegions(filters.regions);
@@ -182,12 +197,10 @@ export default function PartiesPage() {
 
     // 날짜 필터 처리
     if (filters.dates && filters.dates.length > 0) {
-      setFilterDates(filters.dates);
+      setFilterDates(filters.dates.map((date: string) => convertToISODate(date)));
     } else {
       setFilterDates([]);
     }
-
-    loadParties(true);
   };
 
   // 카드 클릭 처리
