@@ -32,13 +32,6 @@ export function ThemeSearchModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 기본 베이스 URL 설정
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL
-    ? process.env.NEXT_PUBLIC_API_URL
-    : process.env.NODE_ENV === "development"
-    ? "http://localhost:8080"
-    : "https://api.ddobang.site";
-
   useEffect(() => {
     if (!isOpen) return;
 

@@ -139,6 +139,18 @@ export default function ThemeDetailPage() {
     }
   }, [themeId]);
 
+  const handleSetWishTheme = async () => {
+    try {
+      await client.POST(`/api/v1/themes/${themeId}/wishes`, {
+        withCredentials: true
+      });
+      router.push("/my/profile");
+    } catch (error) {
+      console.error("희망 테마 설정 에러:", error);
+      // 에러 처리 로직 추가
+    }
+  };
+
   if (loading) {
     return (
       <main className="bg-gray-900 min-h-screen">
@@ -535,12 +547,12 @@ export default function ThemeDetailPage() {
             >
               예약하러 가기
             </Link>
-            <Link
-              href="/my/profile"
+            <button
+              onClick={handleSetWishTheme}
               className="flex-1 px-6 py-3 bg-[#FFB130] text-white rounded-lg hover:bg-[#FFA000] transition-colors text-center shadow-sm whitespace-nowrap"
             >
               희망 테마 설정
-            </Link>
+            </button>
             <Link
               href={`/parties/new?themeId=${themeId}&themeName=${encodeURIComponent(themeDetail.name || '')}`}
               className="flex-1 px-6 py-3 bg-[#FFB130] text-white rounded-lg hover:bg-[#FFA000] transition-colors text-center shadow-sm whitespace-nowrap"

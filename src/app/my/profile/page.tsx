@@ -6,13 +6,7 @@ import Link from "next/link";
 import { Calendar } from "@/components/Calendar";
 import client from "@/lib/backend/client";
 import { useGlobalLoginMember } from "@/stores/auth/loginMember";
-
-// API 기본 URL 설정
-// const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
-//   ? process.env.NEXT_PUBLIC_API_URL
-//   : process.env.NODE_ENV === "development"
-//   ? "http://localhost:8080"
-//   : "https://api.ddobang.site";
+import WishesThemesModal from "@/components/WishesThemesModal";
 
 // 타입 정의
 type UserProfile = {
@@ -31,14 +25,17 @@ type UserProfile = {
 
 type WishTheme = {
   id: number;
-  title: string;
+  name: string;
   storeName: string;
-  genre: string;
-  playTime: string;
+  runtime: number;
+  recommendedParticipants: string;
+  tags: string[];
   thumbnailUrl: string;
-  name?: string;
-  difficulty?: number;
-  rating?: number;
+};
+
+type WishThemesResponse = {
+  message: string;
+  data: WishTheme[];
 };
 
 type CalendarDiary = {
@@ -114,6 +111,7 @@ export default function MyPage() {
   const [partyHistories, setPartyHistories] = useState<PartyHistory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isWishesModalOpen, setIsWishesModalOpen] = useState(false);
 
   // 프로필 정보 가져오기
   const fetchUserProfile = async () => {
@@ -123,7 +121,7 @@ export default function MyPage() {
       }
 
       // 회원 통계 정보 가져오기
-      const statsResponse = await client.GET<ApiResponse<MemberStats>, any>("/api/v1/members/stat", {
+      const statsResponse = await client.GET("/api/v1/members/stat", {
         withCredentials: true
       });
 
@@ -159,41 +157,16 @@ export default function MyPage() {
   // 희망 테마 가져오기
   const fetchWishThemes = async () => {
     try {
-      // API 호출 코드 주석 처리
-      /*
-      const response = await axios.get(
-        `${API_BASE_URL}/api/v1/users/me/wish-themes`,
-        {
-          withCredentials: true,
-        }
-      );
-      setWishThemes(response.data.data);
-      */
+      const response = await client.GET("/api/v1/themes/wishes", {
+        withCredentials: true
+      });
 
-      // 가데이터로 대체
-      const mockWishThemes: WishTheme[] = [
-        {
-          id: 1,
-          name: "미스터리 박스",
-          thumbnailUrl:
-            "https://www.roomlescape.com/file/theme_info/1723787821_10bd760472.gif",
-          storeName: "이스케이프 룸",
-          difficulty: 3,
-          genre: "미스터리",
-          rating: 4.5,
-        },
-        {
-          id: 2,
-          name: "좀비 아포칼립스",
-          thumbnailUrl:
-            "https://www.roomlescape.com/file/theme_info/1723787821_10bd760472.gif",
-          storeName: "테마월드",
-          difficulty: 4,
-          genre: "공포",
-          rating: 4.2,
-        },
-      ];
-      setWishThemes(mockWishThemes);
+      if (!response?.data?.data) {
+        throw new Error("Failed to fetch wish themes");
+      }
+
+      const wishThemes = response.data.data as WishTheme[];
+      setWishThemes(wishThemes);
     } catch (error) {
       console.error("희망 테마 로딩 에러:", error);
       setError("희망 테마를 불러오는데 실패했습니다.");
@@ -212,7 +185,7 @@ export default function MyPage() {
       const year = targetDate.getFullYear();
       const month = targetDate.getMonth() + 1; // JavaScript month는 0-based
 
-      const response = await client.GET<ApiResponse<DiaryEntry[]>, any>("/api/v1/diaries", {
+      const response = await client.GET("/api/v1/diaries", {
         withCredentials: true,
         params: { year, month },
       });
@@ -249,7 +222,7 @@ export default function MyPage() {
         throw new Error("로그인이 필요합니다.");
       }
 
-      const response = await client.GET<ApiResponse<PartyJoinData>, any>(`/api/v1/parties/joins/${loginMember.id}`, {
+      const response = await client.GET(`/api/v1/parties/joins/${loginMember.id}`, {
         withCredentials: true
       });
 
@@ -257,7 +230,6 @@ export default function MyPage() {
         throw new Error("Failed to fetch party join data");
       }
 
-      // API 응답 구조에 맞게 데이터 추출
       const histories = response.data.data?.items || [];
       
       const partyHistories: PartyHistory[] = histories.map((history: any) => ({
@@ -307,6 +279,21 @@ export default function MyPage() {
 
     loadData();
   }, []);
+
+  // 테마 삭제 함수
+  const handleDeleteTheme = async (themeId: number) => {
+    try {
+      await client.DELETE(`/api/v1/themes/${themeId}/wishes`, {
+        withCredentials: true
+      });
+      
+      // 삭제 후 목록 갱신
+      setWishThemes(prevThemes => prevThemes.filter(theme => theme.id !== themeId));
+    } catch (error) {
+      console.error("테마 삭제 에러:", error);
+      setError("테마 삭제에 실패했습니다.");
+    }
+  };
 
   if (isLoading) {
     return (
@@ -521,59 +508,54 @@ export default function MyPage() {
               </h2>
               <p className="text-gray-400 mt-1">내가 참여하고 싶은 테마들</p>
             </div>
-            <Link
-              href="/themes"
-              className="px-6 py-2.5 bg-[#FFB130] text-black rounded-full hover:bg-[#F0A120] transition-colors font-medium text-sm shadow-sm flex items-center gap-2"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                />
-              </svg>
-              테마 추가
-            </Link>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {wishThemes.map((theme) => (
-              <Link
+              <div
                 key={theme.id}
-                href={`/themes/${theme.id}`}
-                className="bg-gray-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all hover:translate-y-[-4px] duration-300 border border-gray-700"
+                className="bg-gray-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all hover:translate-y-[-4px] duration-300 border border-gray-700 relative group"
               >
                 <div className="aspect-[3/4] relative">
                   <Image
                     src={theme.thumbnailUrl || "/images/theme-placeholder.jpg"}
-                    alt={theme.title || theme.name || "테마"}
+                    alt={theme.name || "테마"}
                     fill
                     className="object-cover"
                   />
                 </div>
                 <div className="p-5">
                   <h3 className="font-bold text-lg text-white mb-2 line-clamp-1">
-                    {theme.title || theme.name}
+                    {theme.name}
                   </h3>
                   <p className="text-sm text-gray-300 mb-3 line-clamp-1">
                     {theme.storeName}
                   </p>
                   <div className="flex items-center gap-2 text-sm text-gray-300">
                     <span className="px-2 py-1 bg-gray-700 rounded-md">
-                      {theme.genre}
+                      {theme.runtime}분
                     </span>
                     <span>•</span>
                     <span className="px-2 py-1 bg-gray-700 rounded-md">
-                      {theme.playTime}
+                      {theme.recommendedParticipants}인
                     </span>
                   </div>
                 </div>
-              </Link>
+                {/* 호버 시 나타나는 버튼들 */}
+                <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
+                  <Link
+                    href={`/themes/${theme.id}`}
+                    className="px-6 py-2.5 bg-[#FFB130] text-black rounded-full hover:bg-[#F0A120] transition-colors font-medium"
+                  >
+                    상세보기
+                  </Link>
+                  <button
+                    onClick={() => handleDeleteTheme(theme.id)}
+                    className="px-6 py-2.5 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors font-medium"
+                  >
+                    삭제
+                  </button>
+                </div>
+              </div>
             ))}
             <div className="bg-gray-800 rounded-2xl overflow-hidden border border-dashed border-gray-600 flex flex-col items-center justify-center p-6 min-h-[300px]">
               <div className="w-16 h-16 rounded-full bg-gray-700 flex items-center justify-center mb-4 shadow-sm">
@@ -597,12 +579,12 @@ export default function MyPage() {
               <p className="text-gray-400 text-sm text-center mb-4">
                 관심있는 테마를 찾아보세요
               </p>
-              <Link
-                href="/themes"
+              <button
+                onClick={() => setIsWishesModalOpen(true)}
                 className="px-4 py-2 bg-[#FFB130] text-black rounded-full text-sm hover:bg-[#F0A120] transition-colors"
               >
                 테마 찾기
-              </Link>
+              </button>
             </div>
           </div>
         </div>
@@ -799,6 +781,12 @@ export default function MyPage() {
           </div>
         </div>
       </section>
+
+      {/* WishesThemesModal */}
+      <WishesThemesModal
+        isOpen={isWishesModalOpen}
+        onClose={() => setIsWishesModalOpen(false)}
+      />
     </main>
   );
 }
