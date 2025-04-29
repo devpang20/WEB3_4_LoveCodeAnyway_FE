@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useGlobalLoginMember } from "@/stores/auth/loginMember";
 import client from "@/lib/backend/client";
-import PartyHistoryModal from "@/components/PartyHistoryModal";
+import PartyReviewModal from "@/components/PartyReviewModal";
 
 
 // 모임 타입 정의
@@ -688,7 +688,7 @@ export default function HistoryPage() {
       </div>
 
       {/* 모달 컴포넌트 추가 */}
-      <PartyHistoryModal
+      <PartyReviewModal
         partyId={selectedPartyId || 0}
         isOpen={isModalOpen}
         onClose={closeModal}
