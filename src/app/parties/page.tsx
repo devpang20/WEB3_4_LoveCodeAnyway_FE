@@ -1,12 +1,10 @@
 "use client";
 
 import { useState, useEffect, useContext, useRef, useCallback } from "react";
-import { Navigation } from "@/components/Navigation";
 import { PartyCard } from "@/components/PartyCard";
 import { ThemeSearch } from "@/components/ThemeSearch";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getParties } from "@/lib/api/party";
 import { PageLoading } from "@/components/PageLoading";
 import { LoginMemberContext } from "@/stores/auth/loginMember";
 import client from "@/lib/backend/client";
@@ -24,6 +22,13 @@ interface PartyMainResponse {
   scheduledAt?: string;
   acceptedParticipantCount?: number;
   totalParticipants?: number;
+}
+
+interface SearchCondition {
+  keyword: string;
+  regionIds: number[];
+  dates: string[];
+  tagsIds: number[];
 }
 
 // API에서 받는 응답 형태
@@ -44,9 +49,12 @@ export default function PartiesPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [filterRegions, setFilterRegions] = useState<string[]>([]);
+  const [filterSubRegions, setFilterSubRegions] = useState<string[]>([]);
   const [filterGenres, setFilterGenres] = useState<string[]>([]);
+  const [filterGenreNames, setFilterGenreNames] = useState<string[]>([]);
   const [filterDates, setFilterDates] = useState<string[]>([]);
   const [hasMore, setHasMore] = useState(true);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const observer = useRef<IntersectionObserver | null>(null);
   const ITEMS_PER_PAGE = 30;
 
@@ -86,7 +94,7 @@ export default function PartiesPage() {
       const lastParty = parties[parties.length - 1];
       const lastId = reset ? undefined : lastParty?.partyId;
 
-      const searchCondition = {
+      const searchCondition: SearchCondition = {
         keyword: searchKeyword || "",
         regionIds: filterRegions.length > 0 ? filterRegions.map(id => parseInt(id)) : [],
         dates: filterDates,
@@ -107,7 +115,6 @@ export default function PartiesPage() {
         const newParties = response.data.data.content || [];
         const hasNext = response.data.data.hasNext || false;
         
-        // 새로운 데이터가 없거나 기존 데이터와 동일한 경우 hasMore를 false로 설정
         if (newParties.length === 0 || (newParties[0]?.partyId === lastId)) {
           setHasMore(false);
         } else {
@@ -115,9 +122,6 @@ export default function PartiesPage() {
         }
         
         setParties(prev => reset ? newParties : [...prev, ...newParties]);
-        
-        console.log("파티 데이터 로드 완료:", newParties);
-        console.log("다음 페이지 존재 여부:", hasNext);
       }
     } catch (error) {
       console.error("모임 데이터 로드 중 오류 발생:", error);
@@ -182,27 +186,26 @@ export default function PartiesPage() {
     console.log("페이지에서 받은 필터 값:", filters);
     
     // 지역 필터 처리
-    if (filters.regions && filters.regions.length > 0) {
-      setFilterRegions(filters.regions);
-    } else {
-      setFilterRegions([]);
-    }
+    const newRegions = filters.regions || [];
+    setFilterRegions(newRegions);
+    
+    // subRegion 필터 처리
+    const newSubRegions = filters.subRegions || [];
+    setFilterSubRegions(newSubRegions);
 
     // 장르 필터 처리
-    if (filters.genres && filters.genres.length > 0) {
-      setFilterGenres(filters.genres);
-    } else {
-      setFilterGenres([]);
-    }
+    const newGenres = filters.genres || [];
+    setFilterGenres(newGenres);
+
+    // 장르 이름 처리
+    const newGenreNames = filters.genreNames || [];
+    setFilterGenreNames(newGenreNames);
 
     // 날짜 필터 처리
-    if (filters.dates && filters.dates.length > 0) {
-      setFilterDates(filters.dates.map((date: string) => convertToISODate(date)));
-    } else {
-      setFilterDates([]);
-    }
+    const newDates = filters.dates ? filters.dates.map((date: string) => convertToISODate(date)) : [];
+    setFilterDates(newDates);
 
-    // 필터 설정 후 바로 API 요청
+    // 필터가 변경되면 데이터를 새로 로드
     loadParties(true);
   };
 
@@ -313,6 +316,10 @@ export default function PartiesPage() {
             onFilterChange={handleFilterChange}
             onFilterApply={handleFilterApply}
             filterType="party"
+            searchTerm={searchKeyword}
+            onSearchTermChange={setSearchKeyword}
+            isFilterModalOpen={isFilterModalOpen}
+            onFilterModalOpenChange={setIsFilterModalOpen}
           />
           
           {/* 활성화된 필터 표시 */}
@@ -343,12 +350,13 @@ export default function PartiesPage() {
                 </button>
               </div>
             )}
-            {filterRegions.length > 0 && (
+            {filterSubRegions.length > 0 && (
               <div className="inline-flex items-center px-2 py-1 bg-gray-700 text-white rounded-full text-xs">
-                <span>지역: {filterRegions.join(", ")}</span>
+                <span>지역: {filterSubRegions.join(", ")}</span>
                 <button
                   onClick={() => {
                     setFilterRegions([]);
+                    setFilterSubRegions([]);
                     loadParties(true);
                   }}
                   className="ml-1.5 hover:text-gray-300"
@@ -369,12 +377,13 @@ export default function PartiesPage() {
                 </button>
               </div>
             )}
-            {filterGenres.length > 0 && (
+            {filterGenreNames.length > 0 && (
               <div className="inline-flex items-center px-2 py-1 bg-gray-700 text-white rounded-full text-xs">
-                <span>장르: {filterGenres.join(", ")}</span>
+                <span>장르: {filterGenreNames.join(", ")}</span>
                 <button
                   onClick={() => {
                     setFilterGenres([]);
+                    setFilterGenreNames([]);
                     loadParties(true);
                   }}
                   className="ml-1.5 hover:text-gray-300"
@@ -426,7 +435,9 @@ export default function PartiesPage() {
                 onClick={() => {
                   setSearchKeyword("");
                   setFilterRegions([]);
+                  setFilterSubRegions([]);
                   setFilterGenres([]);
+                  setFilterGenreNames([]);
                   setFilterDates([]);
                   loadParties(true);
                 }}

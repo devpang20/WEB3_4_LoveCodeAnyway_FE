@@ -22,10 +22,18 @@ interface ApiResponse<T> {
   data: T;
 }
 
+interface FilterValues {
+  regions: string[];
+  genres: number[];
+  dates: string[];
+  subRegions: string[];
+  genreNames: string[];
+}
+
 interface ThemeFilterModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onApply: (filters: any) => void;
+  onApply: (filters: FilterValues) => void;
 }
 
 export function ThemeFilterModalForParties({
@@ -103,11 +111,16 @@ export function ThemeFilterModalForParties({
   };
 
   const handleRegionToggle = (regionId: number) => {
-    setSelectedRegions((prev) =>
-      prev.includes(regionId.toString())
-        ? prev.filter((r) => r !== regionId.toString())
-        : [...prev, regionId.toString()]
-    );
+    const region = regions.find(r => r.id === regionId);
+    
+    setSelectedRegions((prev) => {
+      const regionIdStr = regionId.toString();
+      if (prev.includes(regionIdStr)) {
+        return prev.filter((r) => r !== regionIdStr);
+      } else {
+        return [...prev, regionIdStr];
+      }
+    });
   };
 
   const handleGenreToggle = (tagId: number) => {
@@ -142,17 +155,23 @@ export function ThemeFilterModalForParties({
   };
 
   const handleApply = () => {
-    const filters = {
+    const selectedSubRegions = selectedRegions.map(regionId => {
+      const region = regions.find(r => r.id === parseInt(regionId));
+      return region ? region.subRegion : '';
+    }).filter(Boolean);
+
+    const selectedGenreNames = selectedGenres.map(genreId => {
+      const tag = tags.find(t => t.id === genreId);
+      return tag ? tag.name : '';
+    }).filter(Boolean);
+
+    const filters: FilterValues = {
       regions: selectedRegions,
       genres: selectedGenres,
       dates: selectedDates.map(date => format(date, "yyyy. M. d.")),
+      subRegions: selectedSubRegions,
+      genreNames: selectedGenreNames
     };
-    console.log("필터 적용 - 전달되는 값:", {
-      regions: selectedRegions,
-      genres: selectedGenres,
-      dates: selectedDates,
-      formattedFilters: filters
-    });
     onApply(filters);
     onClose();
   };

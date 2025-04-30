@@ -8,6 +8,10 @@ interface ThemeSearchModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelect: (theme: string, themeId: number) => void;
+  searchTerm: string;
+  onSearchTermChange: (term: string) => void;
+  loading: boolean;
+  onLoadingChange: (loading: boolean) => void;
 }
 
 interface SimpleThemeResponse {
@@ -26,10 +30,12 @@ export function ThemeSearchModal({
   isOpen,
   onClose,
   onSelect,
+  searchTerm,
+  onSearchTermChange,
+  loading,
+  onLoadingChange,
 }: ThemeSearchModalProps) {
-  const [searchTerm, setSearchTerm] = useState("");
   const [themes, setThemes] = useState<SimpleThemeResponse[]>([]);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -37,7 +43,7 @@ export function ThemeSearchModal({
 
     // 모달이 열릴 때 테마 목록 초기화
     const fetchThemes = async () => {
-      setLoading(true);
+      onLoadingChange(true);
       setError(null);
 
       try {
@@ -58,12 +64,12 @@ export function ThemeSearchModal({
         setError("테마 목록을 불러오는데 실패했습니다.");
         setThemes([]);
       } finally {
-        setLoading(false);
+        onLoadingChange(false);
       }
     };
 
     fetchThemes();
-  }, [isOpen, searchTerm]);
+  }, [isOpen, searchTerm, onLoadingChange]);
 
   const handleThemeSelect = (theme: SimpleThemeResponse) => {
     onSelect(theme.name, theme.themeId);
@@ -112,7 +118,7 @@ export function ThemeSearchModal({
           <input
             type="text"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => onSearchTermChange(e.target.value)}
             placeholder="테마명으로 검색"
             className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
           />
