@@ -222,7 +222,12 @@ export default function MyPage() {
         throw new Error("로그인이 필요합니다.");
       }
 
-      const response = await client.GET(`/api/v1/parties/joins/${loginMember.id}`, {
+      const response = await client.GET("/api/v1/parties/joins/{id}", {
+        params: {
+          path: {
+            id: loginMember.id
+          }
+        },
         withCredentials: true
       });
 
@@ -261,6 +266,12 @@ export default function MyPage() {
 
   // 컴포넌트 마운트 시 데이터 로딩
   useEffect(() => {
+    if (!isLogin || !loginMember?.id) {
+      setError('로그인이 필요합니다.');
+      setIsLoading(false);
+      return;
+    }
+
     const loadData = async () => {
       setIsLoading(true);
       try {
@@ -272,13 +283,14 @@ export default function MyPage() {
         ]);
       } catch (error) {
         console.error("데이터 로딩 에러:", error);
+        setError("데이터를 불러오는데 실패했습니다.");
       } finally {
         setIsLoading(false);
       }
     };
 
     loadData();
-  }, []);
+  }, [isLogin, loginMember?.id]);
 
   // 테마 삭제 함수
   const handleDeleteTheme = async (themeId: number) => {

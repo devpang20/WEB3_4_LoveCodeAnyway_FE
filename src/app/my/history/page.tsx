@@ -53,7 +53,7 @@ type ApiResponse = {
 
 export default function HistoryPage() {
   const router = useRouter();
-  const { loginMember } = useGlobalLoginMember();
+  const { loginMember, isLogin } = useGlobalLoginMember();
   // 상태 관리
   const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
   const [statusFilter, setStatusFilter] = useState<
@@ -73,14 +73,14 @@ export default function HistoryPage() {
 
   // 모임 데이터 가져오기
   useEffect(() => {
-    setIsLoading(true);
-    setError(null);
-
-    if (!loginMember) {
+    if (!isLogin || !loginMember?.id) {
       setError('로그인이 필요합니다.');
       setIsLoading(false);
       return;
     }
+
+    setIsLoading(true);
+    setError(null);
 
     // 전체 데이터를 한 번에 가져오기
     client.GET('/api/v1/parties/joins/{id}', {
@@ -136,7 +136,7 @@ export default function HistoryPage() {
         setError('데이터를 불러오는 중 오류가 발생했습니다.');
         setIsLoading(false);
       });
-  }, [loginMember]);
+  }, [isLogin, loginMember?.id]);
 
   // 필터링 로직
   useEffect(() => {
