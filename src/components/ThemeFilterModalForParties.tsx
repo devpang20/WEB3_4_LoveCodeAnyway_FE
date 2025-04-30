@@ -34,12 +34,20 @@ interface ThemeFilterModalProps {
   isOpen: boolean;
   onClose: () => void;
   onApply: (filters: FilterValues) => void;
+  currentFilters?: {
+    regions: string[];
+    genres: number[];
+    dates: string[];
+    subRegions: string[];
+    genreNames: string[];
+  };
 }
 
 export function ThemeFilterModalForParties({
   isOpen,
   onClose,
   onApply,
+  currentFilters
 }: ThemeFilterModalProps) {
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [selectedGenres, setSelectedGenres] = useState<number[]>([]);
@@ -61,11 +69,16 @@ export function ThemeFilterModalForParties({
   ];
 
   useEffect(() => {
-    if (isOpen) {
-      fetchTags();
-      fetchRegions();
+    if (isOpen && currentFilters) {
+      setSelectedRegions(currentFilters.regions);
+      setSelectedGenres(currentFilters.genres);
+      setSelectedDates(currentFilters.dates.map(dateStr => new Date(dateStr)));
+      
+      if (currentFilters.regions.length > 0) {
+        fetchCurrentRegionMajor(currentFilters.regions[0]);
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, currentFilters]);
 
   const fetchRegions = async () => {
     setLoadingRegions(true);
@@ -107,6 +120,17 @@ export function ThemeFilterModalForParties({
       console.error("태그 목록을 불러오는 중 오류가 발생했습니다:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCurrentRegionMajor = async (regionId: string) => {
+    try {
+      const response = await client.GET(`/api/v1/regions/${regionId}`);
+      if (response?.data?.data?.majorRegion) {
+        setActiveRegion(response.data.data.majorRegion);
+      }
+    } catch (error) {
+      console.error("지역 정보를 불러오는 중 오류가 발생했습니다:", error);
     }
   };
 

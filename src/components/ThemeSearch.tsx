@@ -24,6 +24,7 @@ interface ThemeSearchProps {
   onSearchTermChange: (term: string) => void;
   isFilterModalOpen: boolean;
   onFilterModalOpenChange: (isOpen: boolean) => void;
+  currentFilters?: FilterValues;
 }
 
 export function ThemeSearch({
@@ -36,6 +37,7 @@ export function ThemeSearch({
   onSearchTermChange,
   isFilterModalOpen,
   onFilterModalOpenChange,
+  currentFilters,
 }: ThemeSearchProps) {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,7 +78,7 @@ export function ThemeSearch({
               value={searchTerm}
               onChange={(e) => onSearchTermChange(e.target.value)}
               placeholder="테마 이름으로 검색"
-              className="w-full pl-9 pr-4 py-2.5 h-10 border border-gray-700 rounded-lg focus:outline-none focus:border-gray-700 placeholder:text-gray-400"
+              className="w-full pl-9 pr-4 py-2.5 h-10 border border-gray-700 rounded-lg focus:outline-none focus:border-gray-700 placeholder:text-gray-400 text-white bg-gray-800"
             />
           </form>
         </div>
@@ -132,6 +134,7 @@ export function ThemeSearch({
           isOpen={isFilterModalOpen}
           onClose={() => onFilterModalOpenChange(false)}
           onApply={handleFilterApply}
+          currentFilters={currentFilters}
         />
       )}
     </div>

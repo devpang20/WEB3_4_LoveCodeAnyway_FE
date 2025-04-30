@@ -300,6 +300,58 @@ export default function PartiesPage() {
     );
   };
 
+  // 필터 초기화 함수
+  const resetAllFilters = () => {
+    setSearchKeyword("");
+    setFilterRegions([]);
+    setFilterSubRegions([]);
+    setFilterGenres([]);
+    setFilterGenreNames([]);
+    setFilterDates([]);
+    
+    // 모든 필터가 초기화된 상태로 API 요청
+    const emptySearchCondition: SearchCondition = {
+      keyword: "",
+      regionIds: [],
+      dates: [],
+      tagsIds: []
+    };
+    loadParties(true, emptySearchCondition);
+  };
+
+  // 특정 필터만 제거하는 함수
+  const removeFilter = (filterType: 'keyword' | 'region' | 'genre' | 'date') => {
+    const currentSearchCondition: SearchCondition = {
+      keyword: searchKeyword || "",
+      regionIds: filterRegions.length > 0 ? filterRegions.map((id: string) => parseInt(id)) : [],
+      dates: filterDates,
+      tagsIds: filterGenres.length > 0 ? filterGenres.map((id: string) => parseInt(id)) : []
+    };
+
+    switch (filterType) {
+      case 'keyword':
+        setSearchKeyword("");
+        currentSearchCondition.keyword = "";
+        break;
+      case 'region':
+        setFilterRegions([]);
+        setFilterSubRegions([]);
+        currentSearchCondition.regionIds = [];
+        break;
+      case 'genre':
+        setFilterGenres([]);
+        setFilterGenreNames([]);
+        currentSearchCondition.tagsIds = [];
+        break;
+      case 'date':
+        setFilterDates([]);
+        currentSearchCondition.dates = [];
+        break;
+    }
+
+    loadParties(true, currentSearchCondition);
+  };
+
   return (
     <div className="min-h-screen bg-gray-900">
       <main className="container mx-auto px-4 py-10">
@@ -326,6 +378,13 @@ export default function PartiesPage() {
             onSearchTermChange={setSearchKeyword}
             isFilterModalOpen={isFilterModalOpen}
             onFilterModalOpenChange={setIsFilterModalOpen}
+            currentFilters={{
+              regions: filterRegions,
+              genres: filterGenres.map(id => parseInt(id)),
+              dates: filterDates,
+              subRegions: filterSubRegions,
+              genreNames: filterGenreNames
+            }}
           />
           
           {/* 활성화된 필터 표시 */}
@@ -334,10 +393,7 @@ export default function PartiesPage() {
               <div className="inline-flex items-center px-2 py-1 bg-gray-700 text-white rounded-full text-xs">
                 <span>검색어: {searchKeyword}</span>
                 <button
-                  onClick={() => {
-                    setSearchKeyword("");
-                    loadParties(true);
-                  }}
+                  onClick={() => removeFilter('keyword')}
                   className="ml-1.5 hover:text-gray-300"
                 >
                   <svg
@@ -360,11 +416,7 @@ export default function PartiesPage() {
               <div className="inline-flex items-center px-2 py-1 bg-gray-700 text-white rounded-full text-xs">
                 <span>지역: {filterSubRegions.join(", ")}</span>
                 <button
-                  onClick={() => {
-                    setFilterRegions([]);
-                    setFilterSubRegions([]);
-                    loadParties(true);
-                  }}
+                  onClick={() => removeFilter('region')}
                   className="ml-1.5 hover:text-gray-300"
                 >
                   <svg
@@ -387,11 +439,7 @@ export default function PartiesPage() {
               <div className="inline-flex items-center px-2 py-1 bg-gray-700 text-white rounded-full text-xs">
                 <span>장르: {filterGenreNames.join(", ")}</span>
                 <button
-                  onClick={() => {
-                    setFilterGenres([]);
-                    setFilterGenreNames([]);
-                    loadParties(true);
-                  }}
+                  onClick={() => removeFilter('genre')}
                   className="ml-1.5 hover:text-gray-300"
                 >
                   <svg
@@ -412,12 +460,9 @@ export default function PartiesPage() {
             )}
             {filterDates.length > 0 && (
               <div className="inline-flex items-center px-2 py-1 bg-gray-700 text-white rounded-full text-xs">
-                <span>날짜: {filterDates.join(", ")}</span>
+                <span>날짜: {filterDates.map(date => new Date(date).toLocaleDateString()).join(", ")}</span>
                 <button
-                  onClick={() => {
-                    setFilterDates([]);
-                    loadParties(true);
-                  }}
+                  onClick={() => removeFilter('date')}
                   className="ml-1.5 hover:text-gray-300"
                 >
                   <svg
@@ -438,15 +483,7 @@ export default function PartiesPage() {
             )}
             {(searchKeyword || filterRegions.length > 0 || filterGenres.length > 0 || filterDates.length > 0) && (
               <button
-                onClick={() => {
-                  setSearchKeyword("");
-                  setFilterRegions([]);
-                  setFilterSubRegions([]);
-                  setFilterGenres([]);
-                  setFilterGenreNames([]);
-                  setFilterDates([]);
-                  loadParties(true);
-                }}
+                onClick={resetAllFilters}
                 className="inline-flex items-center px-2 py-1 bg-black text-white rounded-full text-xs hover:bg-gray-800"
               >
                 필터 초기화
