@@ -20,12 +20,16 @@ interface CalendarProps {
   selectedDate: Date | null;
   onChange: (date: Date) => void;
   markedDates?: Date[];
+  startDate?: Date | null;
+  endDate?: Date | null;
 }
 
 export function Calendar({
   selectedDate,
   onChange,
   markedDates = [],
+  startDate,
+  endDate,
 }: CalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
@@ -43,6 +47,11 @@ export function Calendar({
 
   const isMarkedDate = (date: Date) =>
     markedDates.some((markedDate) => isSameDay(date, markedDate));
+
+  const isDateInRange = (date: Date) => {
+    if (!startDate || !endDate) return false;
+    return date >= startDate && date <= endDate && !isSameDay(date, startDate) && !isSameDay(date, endDate);
+  };
 
   return (
     <div className="w-full">
@@ -80,6 +89,7 @@ export function Calendar({
           const isCurrentMonth = isSameMonth(day, currentMonth);
           const isSelected = selectedDate && isSameDay(day, selectedDate);
           const isMarked = isMarkedDate(day);
+          const isInRange = isDateInRange(day);
 
           return (
             <button
@@ -88,16 +98,13 @@ export function Calendar({
               className={`
                 h-10 flex flex-col items-center justify-center relative
                 ${isCurrentMonth ? "text-white" : "text-gray-500"}
-                ${isSelected ? "bg-[#FFB130]" : "hover:bg-gray-700"}
+                ${isMarked ? "bg-[#FFB130]" : isInRange ? "bg-[#FFB130]/30" : "hover:bg-gray-700"}
                 rounded-lg transition-colors
               `}
             >
-              <span className={isSelected ? "font-bold" : ""}>
+              <span className={isMarked ? "font-bold" : ""}>
                 {format(day, "d")}
               </span>
-              {isMarked && (
-                <div className="absolute bottom-1 w-1 h-1 bg-[#FFB130] rounded-full" />
-              )}
             </button>
           );
         })}

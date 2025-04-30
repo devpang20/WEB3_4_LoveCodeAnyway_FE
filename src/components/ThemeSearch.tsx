@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ThemeFilterModal } from "./ThemeFilterModal";
-import { ThemeFilterModalForParties } from "./ThemeFilterModalForParties";
+import { PartiesFilterModal } from "./PartiesFilterModal";
 
 interface FilterValues {
   regions: string[];
@@ -130,7 +130,7 @@ export function ThemeSearch({
           onApply={handleFilterApply}
         />
       ) : (
-        <ThemeFilterModalForParties
+        <PartiesFilterModal
           isOpen={isFilterModalOpen}
           onClose={() => onFilterModalOpenChange(false)}
           onApply={handleFilterApply}

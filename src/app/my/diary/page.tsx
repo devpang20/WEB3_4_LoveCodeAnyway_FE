@@ -7,13 +7,7 @@ import Image from "next/image";
 import { PageLoading } from "@/components/PageLoading";
 import { client } from "@/lib/api/client";
 import { ThemeSearch } from "@/components/ThemeSearch";
-
-// API 기본 URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
-  ? process.env.NEXT_PUBLIC_API_URL
-  : process.env.NODE_ENV === "development"
-  ? "http://localhost:8080"
-  : "https://api.ddobang.site";
+import { DiarySearch } from "@/components/DiarySearch";
 
 // 일지 타입 정의
 interface Diary {
@@ -36,8 +30,6 @@ interface DiaryFilter {
   tagIds?: number[];
   startDate?: string;
   endDate?: string;
-  isSuccess?: string | null;
-  isNoHint?: boolean | null;
 }
 
 // 페이지네이션 타입 정의
@@ -63,6 +55,8 @@ export default function DiaryPage() {
   });
   const searchInputRef = useRef<HTMLInputElement>(null);
   const filterModalRef = useRef<HTMLDivElement>(null);
+  const [filterSubRegions, setFilterSubRegions] = useState<string[]>([]);
+  const [filterGenreNames, setFilterGenreNames] = useState<string[]>([]);
 
   // 검색어 입력 지연 처리를 위한 타이머
   const searchTimer = useRef<NodeJS.Timeout | null>(null);
@@ -117,8 +111,6 @@ export default function DiaryPage() {
     if (filter.regionId && filter.regionId.length > 0) count++;
     if (filter.tagIds && filter.tagIds.length > 0) count++;
     if (filter.startDate || filter.endDate) count++;
-    if (filter.isSuccess !== null) count++;
-    if (filter.isNoHint !== null) count++;
     setAppliedFiltersCount(count);
   }, [filter]);
 
@@ -129,12 +121,17 @@ export default function DiaryPage() {
   ) => {
     setLoading(true);
     try {
-      const response = await client.post("/api/v1/diaries/list", currentFilter, {
+      const response = await client.post("/api/v1/diaries/list", {
+        keyword: currentFilter.keyword,
+        regionIds: currentFilter.regionId,
+        tagIds: currentFilter.tagIds,
+        startDate: currentFilter.startDate,
+        endDate: currentFilter.endDate
+      }, {
         params: {
           page: page - 1,
           pageSize: 12,
         },
-        // data: currentFilter,
         withCredentials: true,
       });
 
@@ -164,12 +161,37 @@ export default function DiaryPage() {
     }
   };
 
+  // 검색 핸들러
+  const handleSearch = (keyword: string) => {
+    setSearchKeyword(keyword);
+    const newFilter = { ...filter, keyword };
+    setFilter(newFilter);
+    fetchDiaries(1, newFilter);
+  };
+
+  // 한국어 날짜를 ISO 형식으로 변환하는 함수
+  const convertToISODate = (koreanDate: string): string => {
+    const [year, month, day] = koreanDate.replace(/\./g, '').split(' ').map(Number);
+    return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+  };
+
   // 필터 적용 핸들러
-  const handleApplyFilter = (newFilter: Partial<DiaryFilter>) => {
-    const updatedFilter = { ...filter, ...newFilter };
-    setFilter(updatedFilter);
-    fetchDiaries(1, updatedFilter);
-    setIsFilterModalOpen(false);
+  const handleFilterApply = (filters: any) => {
+    console.log("페이지에서 받은 필터 값:", filters);
+    const newFilter = {
+      ...filter,
+      regionId: filters.regions.map((id: string) => parseInt(id)),
+      tagIds: filters.genres,
+      startDate: filters.dates[0] ? convertToISODate(filters.dates[0]) : undefined,
+      endDate: filters.dates[1] ? convertToISODate(filters.dates[1]) : undefined
+    };
+
+    // 필터 이름들 설정
+    setFilterSubRegions(filters.subRegions || []);
+    setFilterGenreNames(filters.genreNames || []);
+
+    setFilter(newFilter);
+    fetchDiaries(1, newFilter);
   };
 
   // 페이지 변경 핸들러
@@ -299,18 +321,40 @@ export default function DiaryPage() {
       ));
   };
 
-  // 필터 적용 핸들러
-  const handleFilterApply = (filters: any) => {
-    const newFilter: DiaryFilter = {
-      keyword: filter.keyword,
-      regionId: filters.regions?.map((r: any) => r.id),
-      tagIds: filters.tags?.map((t: any) => t.id),
-      startDate: filters.dateFrom,
-      endDate: filters.dateTo,
-      isSuccess: filters.escapeResult === true ? "true" : filters.escapeResult === false ? "false" : null,
-      isNoHint: filters.noHint,
-    };
-    handleApplyFilter(newFilter);
+  // 필터 초기화 함수
+  const resetAllFilters = () => {
+    setSearchKeyword("");
+    setFilter({ keyword: "" });
+    setFilterSubRegions([]);
+    setFilterGenreNames([]);
+    fetchDiaries(1, { keyword: "" });
+  };
+
+  // 특정 필터 제거 함수
+  const removeFilter = (filterType: 'keyword' | 'region' | 'genre' | 'date') => {
+    const newFilter = { ...filter };
+
+    switch (filterType) {
+      case 'keyword':
+        setSearchKeyword("");
+        newFilter.keyword = "";
+        break;
+      case 'region':
+        newFilter.regionId = undefined;
+        setFilterSubRegions([]);
+        break;
+      case 'genre':
+        newFilter.tagIds = undefined;
+        setFilterGenreNames([]);
+        break;
+      case 'date':
+        newFilter.startDate = undefined;
+        newFilter.endDate = undefined;
+        break;
+    }
+
+    setFilter(newFilter);
+    fetchDiaries(1, newFilter);
   };
 
   return (
@@ -327,13 +371,127 @@ export default function DiaryPage() {
         </div>
 
         {/* 검색 및 필터 섹션 */}
-        <ThemeSearch
-          onSearch={(keyword) => {
-            setSearchKeyword(keyword);
-            fetchDiaries(1, { ...filter, keyword });
-          }}
-          onFilterApply={handleFilterApply}
-        />
+        <div className="mb-8">
+          <DiarySearch
+            onSearch={handleSearch}
+            searchTerm={searchKeyword}
+            onSearchTermChange={setSearchKeyword}
+            isFilterModalOpen={isFilterModalOpen}
+            onFilterModalOpenChange={setIsFilterModalOpen}
+            currentFilters={{
+              regions: filter.regionId?.map(id => id.toString()) || [],
+              genres: filter.tagIds || [],
+              dates: [filter.startDate, filter.endDate].filter(Boolean) as string[],
+              subRegions: filterSubRegions,
+              genreNames: filterGenreNames
+            }}
+            onFilterApply={handleFilterApply}
+          />
+
+          {/* 활성화된 필터 표시 */}
+          <div className="flex flex-wrap gap-2 mt-3">
+            {searchKeyword && (
+              <div className="inline-flex items-center px-2 py-1 bg-gray-700 text-white rounded-full text-xs">
+                <span>검색어: {searchKeyword}</span>
+                <button
+                  onClick={() => removeFilter('keyword')}
+                  className="ml-1.5 hover:text-gray-300"
+                >
+                  <svg
+                    className="w-3 h-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            )}
+            {filterSubRegions.length > 0 && (
+              <div className="inline-flex items-center px-2 py-1 bg-gray-700 text-white rounded-full text-xs">
+                <span>지역: {filterSubRegions.join(", ")}</span>
+                <button
+                  onClick={() => removeFilter('region')}
+                  className="ml-1.5 hover:text-gray-300"
+                >
+                  <svg
+                    className="w-3 h-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            )}
+            {filterGenreNames.length > 0 && (
+              <div className="inline-flex items-center px-2 py-1 bg-gray-700 text-white rounded-full text-xs">
+                <span>장르: {filterGenreNames.join(", ")}</span>
+                <button
+                  onClick={() => removeFilter('genre')}
+                  className="ml-1.5 hover:text-gray-300"
+                >
+                  <svg
+                    className="w-3 h-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            )}
+            {(filter.startDate || filter.endDate) && (
+              <div className="inline-flex items-center px-2 py-1 bg-gray-700 text-white rounded-full text-xs">
+                <span>날짜: {filter.startDate && new Date(filter.startDate).toLocaleDateString()} ~ {filter.endDate && new Date(filter.endDate).toLocaleDateString()}</span>
+                <button
+                  onClick={() => removeFilter('date')}
+                  className="ml-1.5 hover:text-gray-300"
+                >
+                  <svg
+                    className="w-3 h-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            )}
+            {(searchKeyword || filter.regionId?.length || filter.tagIds?.length || filter.startDate || filter.endDate) && (
+              <button
+                onClick={resetAllFilters}
+                className="inline-flex items-center px-2 py-1 bg-black text-white rounded-full text-xs hover:bg-gray-800"
+              >
+                필터 초기화
+              </button>
+            )}
+          </div>
+        </div>
 
         {/* 전체 페이지 로딩 */}
         <PageLoading isLoading={initialLoading} />

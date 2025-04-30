@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { DiarySearch } from "@/components/DiarySearch";
-import { DiaryFilterModal } from "@/components/DiaryFilterModal";
 import { useInView } from "react-intersection-observer";
 import axios from "axios";
 
@@ -55,14 +54,23 @@ interface ApiResponse {
   data?: PageResponse<DiaryApiResponse>;
 }
 
+// 필터 값 인터페이스
+interface FilterValues {
+  success: boolean | null;
+  dateRange: {
+    start: string;
+    end: string;
+  } | null;
+}
+
 export default function DiaryPage() {
   const [searchKeyword, setSearchKeyword] = useState("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [activeFilters, setActiveFilters] = useState<any>({
+  const [activeFilters, setActiveFilters] = useState<FilterValues>({
     success: null,
     dateRange: null,
   });
-  const [page, setPage] = useState(0); // API는 0부터 시작하는 페이지 인덱스 사용
+  const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [diaries, setDiaries] = useState<Diary[]>([]);
@@ -102,8 +110,7 @@ export default function DiaryPage() {
         page: page,
         size: 12,
         keyword: searchKeyword || undefined,
-        isSuccess:
-          activeFilters.success !== null ? activeFilters.success : undefined,
+        isSuccess: activeFilters.success !== null ? activeFilters.success : undefined,
         startDate: activeFilters.dateRange?.start || undefined,
         endDate: activeFilters.dateRange?.end || undefined,
       };
@@ -114,27 +121,15 @@ export default function DiaryPage() {
         requestData
       );
 
-      // 응답 데이터 확인
-      console.log("API 응답:", response.data);
-
-      // 데이터가 있는지 확인
       if (response.data.data) {
         const apiDiaries = response.data.data.content || [];
 
-        // 응답이 비어있으면 더 이상 데이터가 없음
         if (apiDiaries.length === 0) {
           setHasMore(false);
         } else {
-          // API 응답을 UI 형식으로 변환
           const newDiaries = apiDiaries.map(convertApiToDiary);
-
-          // 기존 데이터에 추가
           setDiaries((prev) => [...prev, ...newDiaries]);
-
-          // 다음 페이지 설정
           setPage((prev) => prev + 1);
-
-          // 마지막 페이지인지 확인
           setHasMore(!response.data.data.last);
         }
       } else {
@@ -165,21 +160,48 @@ export default function DiaryPage() {
     setDiaries([]);
     setPage(0);
     setHasMore(true);
-    // 검색 시 즉시 데이터 로드
     setTimeout(loadMoreDiaries, 0);
   };
 
-  const handleFilterApply = (filters: any) => {
+  const handleFilterApply = (filters: FilterValues) => {
     setActiveFilters(filters);
-    setIsFilterOpen(false);
     setDiaries([]);
     setPage(0);
     setHasMore(true);
-    // 필터 적용 시 즉시 데이터 로드
     setTimeout(loadMoreDiaries, 0);
   };
 
-  const filteredDiaries = diaries;
+  // 필터 초기화 함수
+  const resetAllFilters = () => {
+    setSearchKeyword("");
+    setActiveFilters({
+      success: null,
+      dateRange: null,
+    });
+    setDiaries([]);
+    setPage(0);
+    setHasMore(true);
+    setTimeout(loadMoreDiaries, 0);
+  };
+
+  // 특정 필터 제거 함수
+  const removeFilter = (filterType: 'keyword' | 'success' | 'date') => {
+    switch (filterType) {
+      case 'keyword':
+        setSearchKeyword("");
+        break;
+      case 'success':
+        setActiveFilters(prev => ({ ...prev, success: null }));
+        break;
+      case 'date':
+        setActiveFilters(prev => ({ ...prev, dateRange: null }));
+        break;
+    }
+    setDiaries([]);
+    setPage(0);
+    setHasMore(true);
+    setTimeout(loadMoreDiaries, 0);
+  };
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -189,13 +211,98 @@ export default function DiaryPage() {
         <div className="mb-8">
           <DiarySearch
             onSearch={handleSearch}
-            onFilterClick={() => setIsFilterOpen(true)}
-            {...({} as any)}
+            searchTerm={searchKeyword}
+            onSearchTermChange={setSearchKeyword}
+            isFilterModalOpen={isFilterOpen}
+            onFilterModalOpenChange={setIsFilterOpen}
+            currentFilters={activeFilters}
+            onFilterApply={handleFilterApply}
           />
         </div>
 
+        {/* 활성화된 필터 표시 */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          {searchKeyword && (
+            <div className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">
+              <span>검색어: {searchKeyword}</span>
+              <button
+                onClick={() => removeFilter('keyword')}
+                className="ml-1.5 hover:text-gray-600"
+              >
+                <svg
+                  className="w-3 h-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+          )}
+          {activeFilters.success !== null && (
+            <div className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">
+              <span>성공 여부: {activeFilters.success ? "성공" : "실패"}</span>
+              <button
+                onClick={() => removeFilter('success')}
+                className="ml-1.5 hover:text-gray-600"
+              >
+                <svg
+                  className="w-3 h-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+          )}
+          {activeFilters.dateRange && (
+            <div className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">
+              <span>날짜: {activeFilters.dateRange.start} ~ {activeFilters.dateRange.end}</span>
+              <button
+                onClick={() => removeFilter('date')}
+                className="ml-1.5 hover:text-gray-600"
+              >
+                <svg
+                  className="w-3 h-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+          )}
+          {(searchKeyword || activeFilters.success !== null || activeFilters.dateRange) && (
+            <button
+              onClick={resetAllFilters}
+              className="inline-flex items-center px-2 py-1 bg-gray-200 text-gray-800 rounded-full text-xs hover:bg-gray-300"
+            >
+              필터 초기화
+            </button>
+          )}
+        </div>
+
         <div className="space-y-4">
-          {filteredDiaries.map((diary) => (
+          {diaries.map((diary) => (
             <div
               key={diary.id}
               className="bg-white rounded-lg shadow-sm p-5 border border-gray-100"
@@ -236,13 +343,13 @@ export default function DiaryPage() {
             </div>
           )}
 
-          {!hasMore && filteredDiaries.length > 0 && (
+          {!hasMore && diaries.length > 0 && (
             <div className="text-center py-4 text-sm text-gray-500">
               더 이상의 다이어리가 없습니다.
             </div>
           )}
 
-          {filteredDiaries.length === 0 && !loading && (
+          {diaries.length === 0 && !loading && (
             <div className="text-center py-8 text-sm text-gray-500">
               검색 결과가 없습니다.
             </div>
@@ -251,12 +358,6 @@ export default function DiaryPage() {
           <div ref={ref} className="h-8" />
         </div>
       </div>
-
-      <DiaryFilterModal
-        isOpen={isFilterOpen}
-        onClose={() => setIsFilterOpen(false)}
-        onApply={handleFilterApply}
-      />
     </div>
   );
 }

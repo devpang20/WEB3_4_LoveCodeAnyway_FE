@@ -146,23 +146,6 @@ export default function PartiesPage() {
     }
   }, [searchKeyword, filterRegions, filterGenres, filterDates]);
 
-  // 더미 데이터 생성 함수
-  const generateDummyParties = () => {
-    return Array(8).fill(0).map((_, index) => ({
-      id: index + 1,
-      partyId: index + 1,
-      title: `방탈출 모임 ${index + 1}`,
-      themeName: ["좀비 연구소", "비밀의 방", "사망 이스케이프", "유령의 저택"][index % 4],
-      themeThumbnailUrl: index % 2 === 0
-        ? "https://i.postimg.cc/PJNVr12v/theme.jpg"
-        : "https://i.postimages.org/PJNVr12v/theme.jpg",
-      storeName: ["이스케이프 홍대점", "솔버 강남점", "마스터키 명동점", "키이스케이프 건대점"][index % 4],
-      scheduledAt: new Date(Date.now() + (index % 3) * 2 * 24 * 60 * 60 * 1000).toISOString(),
-      acceptedParticipantCount: Math.floor(Math.random() * 3) + 2,
-      totalParticipants: 6
-    }));
-  };
-
   // 검색 처리
   const handleSearch = (keyword: string) => {
     setSearchKeyword(keyword);
