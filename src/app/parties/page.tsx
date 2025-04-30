@@ -81,7 +81,7 @@ export default function PartiesPage() {
   }, [loading, hasMore]);
 
   // 모임 데이터 로드
-  const loadParties = async (reset = false) => {
+  const loadParties = async (reset = false, customSearchCondition?: SearchCondition) => {
     if (loading || (!hasMore && !reset)) return;
 
     setLoading(true);
@@ -94,12 +94,14 @@ export default function PartiesPage() {
       const lastParty = parties[parties.length - 1];
       const lastId = reset ? undefined : lastParty?.partyId;
 
-      const searchCondition: SearchCondition = {
+      const searchCondition = customSearchCondition || {
         keyword: searchKeyword || "",
         regionIds: filterRegions.length > 0 ? filterRegions.map(id => parseInt(id)) : [],
         dates: filterDates,
         tagsIds: filterGenres.length > 0 ? filterGenres.map(id => parseInt(id)) : []
       };
+
+      console.log("API 요청 검색 조건:", searchCondition);
 
       const response = await client.POST("/api/v1/parties/search", {
         params: {
@@ -187,26 +189,30 @@ export default function PartiesPage() {
     
     // 지역 필터 처리
     const newRegions = filters.regions || [];
-    setFilterRegions(newRegions);
-    
-    // subRegion 필터 처리
     const newSubRegions = filters.subRegions || [];
-    setFilterSubRegions(newSubRegions);
-
-    // 장르 필터 처리
     const newGenres = filters.genres || [];
-    setFilterGenres(newGenres);
-
-    // 장르 이름 처리
     const newGenreNames = filters.genreNames || [];
-    setFilterGenreNames(newGenreNames);
-
-    // 날짜 필터 처리
     const newDates = filters.dates ? filters.dates.map((date: string) => convertToISODate(date)) : [];
-    setFilterDates(newDates);
 
-    // 필터가 변경되면 데이터를 새로 로드
-    loadParties(true);
+    // 새로운 검색 조건 생성
+    const newSearchCondition: SearchCondition = {
+      keyword: searchKeyword || "",
+      regionIds: newRegions.map(id => parseInt(id)),
+      dates: newDates,
+      tagsIds: newGenres.map(id => parseInt(id))
+    };
+
+    // 상태 업데이트와 API 요청
+    Promise.all([
+      setFilterRegions(newRegions),
+      setFilterSubRegions(newSubRegions),
+      setFilterGenres(newGenres),
+      setFilterGenreNames(newGenreNames),
+      setFilterDates(newDates)
+    ]).then(() => {
+      console.log("새로운 검색 조건:", newSearchCondition);
+      loadParties(true, newSearchCondition);
+    });
   };
 
   // 카드 클릭 처리
