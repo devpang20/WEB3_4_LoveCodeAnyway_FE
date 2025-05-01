@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Calendar } from "@/components/Calendar";
+import { HistoryCalendar } from "@/components/HistoryCalendar";
 import client from "@/lib/backend/client";
 import { useGlobalLoginMember } from "@/stores/auth/loginMember";
 import WishesThemesModal from "@/components/WishesThemesModal";
@@ -174,21 +174,23 @@ export default function MyPage() {
   };
 
   // 달력 데이터 가져오기
-  const fetchCalendarDiaries = async () => {
+  const fetchCalendarDiaries = async (targetMonth?: Date) => {
     try {
       if (!isLogin || !loginMember) {
         throw new Error("로그인이 필요합니다.");
       }
 
       // 현재 선택된 날짜가 없으면 현재 월을 기준으로 조회
-      const targetDate = selectedDate || new Date();
+      const targetDate = targetMonth || selectedDate || new Date();
       const year = targetDate.getFullYear();
       const month = targetDate.getMonth() + 1; // JavaScript month는 0-based
 
       const response = await client.GET("/api/v1/diaries", {
         withCredentials: true,
-        params: { year, month },
+        params: { query: { year, month } }
       });
+
+      console.log(response);
 
       if (!response?.data?.data) {
         throw new Error("Failed to fetch diary entries");
@@ -222,7 +224,7 @@ export default function MyPage() {
         throw new Error("로그인이 필요합니다.");
       }
 
-      const response = await client.GET("/api/v1/parties/joins/{id}", {
+      const response = await client.GET("/api/v1/parties/joins/me", {
         params: {
           path: {
             id: loginMember.id
@@ -616,12 +618,15 @@ export default function MyPage() {
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="bg-gray-700 rounded-lg p-6 h-[400px]">
-              <Calendar
+              <HistoryCalendar
                 selectedDate={selectedDate}
                 onChange={setSelectedDate}
                 markedDates={calendarDiaries.map(
                   (diary) => new Date(diary.date)
                 )}
+                onMonthChange={(date) => {
+                  fetchCalendarDiaries(date);
+                }}
               />
             </div>
             <div className="bg-gray-700 rounded-lg p-6 h-[400px]">
@@ -746,7 +751,10 @@ export default function MyPage() {
             </Link>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {partyHistories.map((party) => (
+            {partyHistories
+              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+              .slice(0, 2)
+              .map((party) => (
               <div
                 key={party.id}
                 className="bg-gray-800 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow border border-gray-700"

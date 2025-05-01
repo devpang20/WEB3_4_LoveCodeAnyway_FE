@@ -78,7 +78,7 @@ export function KakaoMap({ width = '100%', height = '256px', address, storeName,
               const infowindow = new window.kakao.maps.InfoWindow({
                 content: `
                   <div style="width:150px;text-align:center;padding:6px 0;">
-                    <div style="font-weight:bold;">${name || storeName || ''}</div>
+                    <div style="font-weight:bold;color:#000;">${name || storeName || ''}</div>
                   </div>
                 `
               });

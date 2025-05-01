@@ -7,6 +7,7 @@ import Image from "next/image";
 import { useGlobalLoginMember } from "@/stores/auth/loginMember";
 import client from "@/lib/backend/client";
 import PartyReviewModal from "@/components/PartyReviewModal";
+import { KakaoMap } from "@/components/KakaoMap";
 
 
 // 모임 타입 정의
@@ -21,6 +22,9 @@ type PartyType = {
   dateTime: string;
   location: string;
   reviewStatus: "WRITABLE" | "COMPLETED" | "NOT_WRITABLE";
+  status: "RECRUITING" | "FULL" | "PENDING" | "COMPLETED" | "CANCELLED";
+  reviewed: boolean;
+  themeId: number;
 };
 
 // API 응답 타입 정의
@@ -38,6 +42,8 @@ type PartyResponse = {
   hostId: number;
   hostNickname: string;
   hostProfilePictureUrl: string;
+  status: string;
+  reviewed: boolean;
 };
 
 type ApiResponse = {
@@ -70,6 +76,7 @@ export default function HistoryPage() {
   const [selectedMapParty, setSelectedMapParty] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPartyId, setSelectedPartyId] = useState<number | null>(null);
+  const [selectedThemeDetail, setSelectedThemeDetail] = useState<any>(null);
 
   // 모임 데이터 가져오기
   useEffect(() => {
@@ -83,7 +90,7 @@ export default function HistoryPage() {
     setError(null);
 
     // 전체 데이터를 한 번에 가져오기
-    client.GET('/api/v1/parties/joins/{id}', {
+    client.GET('/api/v1/parties/joins/me', {
       params: {
         path: {
           id: loginMember.id
@@ -96,7 +103,7 @@ export default function HistoryPage() {
     })
       .then((response) => {
         console.log('API 응답 데이터:', response);
-        
+
         if (!response.data?.data?.items) {
           setError('데이터를 불러오는데 실패했습니다.');
           setIsLoading(false);
@@ -113,7 +120,7 @@ export default function HistoryPage() {
           const acceptedParticipants = item.acceptedParticipantsCount || 0;
           const themeThumbnailUrl = item.themeThumbnailUrl || '';
           const themeTitle = item.themeName || '';
-          
+
           return {
             id,
             title,
@@ -124,7 +131,10 @@ export default function HistoryPage() {
             themeThumbnailUrl,
             themeTitle,
             role: item.hostId === loginMember.id ? "HOST" : "MEMBER",
-            reviewStatus: "WRITABLE" as const
+            reviewStatus: item.reviewed ? "COMPLETED" : "WRITABLE",
+            status: item.status,
+            reviewed: item.reviewed,
+            themeId: item.themeId
           };
         });
 
@@ -246,6 +256,8 @@ export default function HistoryPage() {
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedPartyId(null);
+    // 페이지 새로고침
+    window.location.reload();
   };
 
   // 리뷰 버튼 표시 여부 및 스타일 결정 함수
@@ -256,68 +268,93 @@ export default function HistoryPage() {
     if (partyDate > now) {
       // 예정된 모임인 경우 버튼 없음
       return null;
-    } else if (party.reviewStatus === "WRITABLE") {
+    } else if (!party.reviewed) {
       // 리뷰 작성 가능한 경우
       return (
         <button
           onClick={() => openModal(party.id)}
-          className="px-3 py-1 bg-[#FFB130] text-white text-xs rounded hover:bg-[#FFA000] transition-colors"
+          className="px-6 py-2 bg-[#FFB130] text-white text-sm rounded hover:bg-[#FFA000] transition-colors"
         >
           리뷰 작성
         </button>
       );
-    } else if (party.reviewStatus === "COMPLETED") {
+    } else {
       // 리뷰 작성 완료된 경우
       return (
-        <button className="px-3 py-1 bg-gray-700 text-gray-300 text-xs rounded cursor-default">
+        <button className="px-6 py-2 bg-gray-700 text-gray-300 text-sm rounded cursor-default">
           작성완료
         </button>
       );
-    } else {
-      // 리뷰 작성 불가능한 경우
-      return (
-        <button className="px-3 py-1 bg-gray-700 text-gray-300 text-xs rounded cursor-default">
-          작성불가
-        </button>
-      );
     }
   };
 
-  // 지도 토글 함수
-  const toggleMap = (partyId: number) => {
+  // 상태에 따른 뱃지 스타일 반환 함수
+  const getStatusBadgeStyle = (status: PartyType["status"]) => {
+    switch (status) {
+      case "RECRUITING":
+        return "bg-green-600 text-white";
+      case "FULL":
+        return "bg-blue-600 text-white";
+      case "PENDING":
+        return "bg-yellow-600 text-white";
+      case "COMPLETED":
+        return "bg-purple-600 text-white";
+      case "CANCELLED":
+        return "bg-red-600 text-white";
+      default:
+        return "bg-gray-600 text-white";
+    }
+  };
+
+  // 상태 텍스트 반환 함수
+  const getStatusText = (status: PartyType["status"]) => {
+    switch (status) {
+      case "RECRUITING":
+        return "모집중";
+      case "FULL":
+        return "정원마감";
+      case "PENDING":
+        return "모집마감";
+      case "COMPLETED":
+        return "진행완료";
+      case "CANCELLED":
+        return "취소됨";
+      default:
+        return status;
+    }
+  };
+
+  // 테마 상세 정보 가져오기
+  const fetchThemeDetail = async (themeId: number) => {
+    try {
+      const response = await client.GET(`/api/v1/themes/${themeId}`, {
+        params: {
+          path: {
+            id: themeId
+          }
+        }
+      });
+
+      if (response?.data?.data) {
+        setSelectedThemeDetail(response.data.data);
+      }
+    } catch (err) {
+      console.error("테마 상세 정보 가져오기 오류:", err);
+    }
+  };
+
+  // 지도 토글 시 테마 정보도 함께 가져오기
+  const toggleMap = async (partyId: number) => {
+    const party = allParties.find(p => p.id === partyId);
     if (selectedMapParty === partyId) {
       setSelectedMapParty(null);
+      setSelectedThemeDetail(null);
     } else {
       setSelectedMapParty(partyId);
+      if (party && party.themeId) {
+        await fetchThemeDetail(party.themeId);
+      }
     }
-  };
-
-  // OpenStreetMap 정적 지도 URL 생성 함수
-  const getMapImageUrl = (location: string) => {
-    // 서울 중심 좌표로 기본 설정 (실제로는 위치에 따라 달라져야 함)
-    let lat = 37.5665;
-    let lon = 126.978;
-
-    // 위치에 따라 좌표 조정 (샘플용)
-    if (location.includes("홍대")) {
-      lat = 37.557;
-      lon = 126.923;
-    } else if (location.includes("강남")) {
-      lat = 37.498;
-      lon = 127.027;
-    } else if (location.includes("건대")) {
-      lat = 37.54;
-      lon = 127.069;
-    } else if (location.includes("신촌")) {
-      lat = 37.555;
-      lon = 126.936;
-    } else if (location.includes("종로")) {
-      lat = 37.57;
-      lon = 126.981;
-    }
-
-    // OpenStreetMap 기반 정적 이미지 URL
-    return `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lon}&zoom=14&size=600x400&maptype=mapnik&markers=${lat},${lon},lightblue`;
   };
 
   return (
@@ -358,7 +395,7 @@ export default function HistoryPage() {
                         {Math.floor(
                           (new Date(party.dateTime).getTime() -
                             new Date().getTime()) /
-                            (1000 * 60 * 60 * 24)
+                          (1000 * 60 * 60 * 24)
                         )}
                       </span>
                     </div>
@@ -408,10 +445,10 @@ export default function HistoryPage() {
                       {party.totalParticipants}명
                     </div>
                     <Link
-                      href={`/parties/detail/${party.id}`}
+                      href={`/parties/${party.id}`}
                       className="px-3 py-1 bg-[#FFB130] text-white text-xs rounded hover:bg-[#FFA000] transition-colors"
                     >
-                      참여하기
+                      모임 정보
                     </Link>
                   </div>
                 </div>
@@ -437,21 +474,19 @@ export default function HistoryPage() {
           {/* 탭 필터 */}
           <div className="flex mb-4 border-b border-gray-700">
             <button
-              className={`px-4 py-2 text-sm font-medium ${
-                activeTab === "upcoming"
-                  ? "text-[#FFB230] border-b-2 border-[#FFB230]"
-                  : "text-gray-400 hover:text-gray-200"
-              }`}
+              className={`px-4 py-2 text-sm font-medium ${activeTab === "upcoming"
+                ? "text-[#FFB230] border-b-2 border-[#FFB230]"
+                : "text-gray-400 hover:text-gray-200"
+                }`}
               onClick={() => setActiveTab("upcoming")}
             >
               예정된 모임
             </button>
             <button
-              className={`px-4 py-2 text-sm font-medium ${
-                activeTab === "past"
-                  ? "text-[#FFB230] border-b-2 border-[#FFB230]"
-                  : "text-gray-400 hover:text-gray-200"
-              }`}
+              className={`px-4 py-2 text-sm font-medium ${activeTab === "past"
+                ? "text-[#FFB230] border-b-2 border-[#FFB230]"
+                : "text-gray-400 hover:text-gray-200"
+                }`}
               onClick={() => setActiveTab("past")}
             >
               지난 모임
@@ -473,7 +508,6 @@ export default function HistoryPage() {
                   <option value="ALL">전체</option>
                   <option value="WRITABLE">작성 가능</option>
                   <option value="COMPLETED">작성 완료</option>
-                  <option value="NOT_WRITABLE">작성 불가</option>
                 </select>
               </div>
               <div className="flex items-center space-x-2">
@@ -522,13 +556,17 @@ export default function HistoryPage() {
                   <div className="flex justify-between items-start">
                     <div className="flex items-center gap-2">
                       <span
-                        className={`px-2 py-0.5 text-xs rounded-full ${
-                          party.role === "HOST"
-                            ? "bg-blue-900 text-blue-200"
-                            : "bg-gray-700 text-gray-300"
-                        }`}
+                        className={`px-2 py-0.5 text-xs rounded-full ${party.role === "HOST"
+                          ? "bg-blue-900 text-blue-200"
+                          : "bg-gray-700 text-gray-300"
+                          }`}
                       >
                         {party.role === "HOST" ? "모임장" : "모임원"}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 text-xs rounded-full ${getStatusBadgeStyle(party.status)}`}
+                      >
+                        {getStatusText(party.status)}
                       </span>
                     </div>
                     <div>{getReviewButton(party)}</div>
@@ -544,11 +582,10 @@ export default function HistoryPage() {
                           className="object-cover opacity-90"
                           unoptimized
                           onError={(e) => {
-                            // 이미지 로드 오류 시 기본 이미지(Base64 데이터 URL)로 대체
                             const fallbackImage =
                               "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgZmlsbD0iIzMzMzMzMyIvPjxwYXRoIGQ9Ik00NSA0NUgzMFY3NUg5MFY0NUg3NVYzMEg0NVY0NVpNNzUgOTBIMzBWNzVIOTBWNDVINzVWOTBaIiBmaWxsPSIjNjY2NjY2Ii8+PC9zdmc+";
                             (e.target as HTMLImageElement).src = fallbackImage;
-                            (e.target as HTMLImageElement).onerror = null; // 이중 호출 방지
+                            (e.target as HTMLImageElement).onerror = null;
                           }}
                         />
                       </div>
@@ -610,27 +647,46 @@ export default function HistoryPage() {
                               : "지도 보기"}
                           </button>
                         </div>
-                        <p>
-                          인원: {party.participantsNeeded} /{" "}
-                          {party.totalParticipants}명
-                        </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-gray-300">
+                            인원: {party.participantsNeeded} /{" "}
+                            {party.totalParticipants}명
+                          </p>
+                          <Link
+                            href={`/parties/${party.id}`}
+                            className="px-4 py-2 bg-gray-700 text-gray-200 text-xs rounded hover:bg-gray-600 transition-colors flex items-center gap-1"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 w-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
+                            </svg>
+                            모임 정보
+                          </Link>
+                          
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* 지도 이미지 영역 - 고정 이미지 사용 */}
+                  {/* 지도 이미지 영역 */}
                   {selectedMapParty === party.id && (
                     <div className="mt-4 w-full h-64 bg-gray-700 rounded-lg overflow-hidden relative">
-                      <Image
-                        src="https://i.postimg.cc/L5Q5s78R/image.png"
-                        alt={`${party.location} 지도`}
-                        fill
-                        className="object-cover opacity-90"
-                        unoptimized
+                      <KakaoMap
+                        address={selectedThemeDetail?.storeInfo?.address || party.location}
+                        storeName={selectedThemeDetail?.storeInfo?.name || party.location}
+                        height="256px"
+                        width="100%"
                       />
-                      <div className="absolute bottom-2 right-2 bg-gray-800 text-gray-200 px-2 py-1 rounded shadow text-xs">
-                        {party.location}
-                      </div>
                     </div>
                   )}
                 </div>
@@ -644,11 +700,10 @@ export default function HistoryPage() {
                   <button
                     onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                     disabled={currentPage === 1}
-                    className={`mx-1 p-2 rounded ${
-                      currentPage === 1
-                        ? "text-gray-600 cursor-not-allowed"
-                        : "text-gray-400 hover:text-gray-200"
-                    }`}
+                    className={`mx-1 p-2 rounded ${currentPage === 1
+                      ? "text-gray-600 cursor-not-allowed"
+                      : "text-gray-400 hover:text-gray-200"
+                      }`}
                   >
                     &lt; 이전
                   </button>
@@ -657,11 +712,10 @@ export default function HistoryPage() {
                     <button
                       key={index}
                       onClick={() => setCurrentPage(index + 1)}
-                      className={`mx-1 px-3 py-1 rounded ${
-                        currentPage === index + 1
-                          ? "bg-[#FFB230] text-white"
-                          : "text-gray-400 hover:bg-gray-700"
-                      }`}
+                      className={`mx-1 px-3 py-1 rounded ${currentPage === index + 1
+                        ? "bg-[#FFB230] text-white"
+                        : "text-gray-400 hover:bg-gray-700"
+                        }`}
                     >
                       {index + 1}
                     </button>
@@ -672,11 +726,10 @@ export default function HistoryPage() {
                       setCurrentPage((prev) => Math.min(prev + 1, totalPages))
                     }
                     disabled={currentPage === totalPages}
-                    className={`mx-1 p-2 rounded ${
-                      currentPage === totalPages
-                        ? "text-gray-600 cursor-not-allowed"
-                        : "text-gray-400 hover:text-gray-200"
-                    }`}
+                    className={`mx-1 p-2 rounded ${currentPage === totalPages
+                      ? "text-gray-600 cursor-not-allowed"
+                      : "text-gray-400 hover:text-gray-200"
+                      }`}
                   >
                     다음 &gt;
                   </button>

@@ -32,7 +32,7 @@ type ReviewTag = {
 
 // 멤버별 리뷰 상태 타입 정의
 type MemberReview = {
-  targetId: number;
+  targetNickname: string;
   reviewKeywords: string[];
   noShow: boolean;
 };
@@ -61,37 +61,48 @@ export default function PartyHistoryModal({
   const [partyInfo, setPartyInfo] = useState<PartyInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [memberReviews, setMemberReviews] = useState<Record<number, MemberReview>>({});
+  const [memberReviews, setMemberReviews] = useState<Record<string, MemberReview>>({});
   const [reviewTags, setReviewTags] = useState<ReviewTag[]>([]);
 
   // 리뷰 태그 가져오기
   useEffect(() => {
+    console.log("리뷰 태그 가져오기 useEffect 실행", { isOpen });
+    if (!isOpen) return;
+    
     const fetchReviewKeywords = async () => {
+      console.log("fetchReviewKeywords 함수 시작");
       try {
+        console.log("API 요청 전");
         const response = await client.GET("/api/v1/parties/review-keywords");
-        const data = response.data as unknown as ReviewKeywordsResponse;
-        if (data && 'application/json' in data) {
-          const keywordMap = data['application/json'];
+        console.log("response:", response);
+        
+        if (response.data) {
+          const keywordMap = response.data;
           const tags: ReviewTag[] = [];
           
           // Map POSITIVE keywords
-          keywordMap.POSITIVE?.forEach((keyword: string) => {
-            tags.push({
-              id: keyword,
-              text: getKeywordText(keyword),
-              type: 'POSITIVE'
+          if (Array.isArray(keywordMap.POSITIVE)) {
+            keywordMap.POSITIVE.forEach((keyword: string) => {
+              tags.push({
+                id: keyword,
+                text: getKeywordText(keyword),
+                type: 'POSITIVE'
+              });
             });
-          });
+          }
           
           // Map NEGATIVE keywords
-          keywordMap.NEGATIVE?.forEach((keyword: string) => {
-            tags.push({
-              id: keyword,
-              text: getKeywordText(keyword),
-              type: 'NEGATIVE'
+          if (Array.isArray(keywordMap.NEGATIVE)) {
+            keywordMap.NEGATIVE.forEach((keyword: string) => {
+              tags.push({
+                id: keyword,
+                text: getKeywordText(keyword),
+                type: 'NEGATIVE'
+              });
             });
-          });
+          }
 
+          console.log("생성된 태그:", tags);
           setReviewTags(tags);
         }
       } catch (err) {
@@ -101,7 +112,7 @@ export default function PartyHistoryModal({
     };
 
     fetchReviewKeywords();
-  }, []);
+  }, [isOpen]);
 
   // 키워드에 따른 텍스트 매핑 함수
   const getKeywordText = (keyword: string): string => {
@@ -123,29 +134,43 @@ export default function PartyHistoryModal({
   // 멤버별 리뷰 상태 초기화
   useEffect(() => {
     if (partyInfo?.acceptedPartyMembers) {
-      const initialReviews: Record<number, MemberReview> = {};
-      partyInfo.acceptedPartyMembers.forEach((member) => {
-        initialReviews[member.id] = {
-          targetId: member.id,
+      const initialReviews: Record<string, MemberReview> = {};
+      
+      // 호스트가 현재 유저가 아닌 경우에만 추가
+      if (partyInfo.hostId !== loginMember?.id) {
+        initialReviews[partyInfo.hostNickname] = {
+          targetNickname: partyInfo.hostNickname,
           reviewKeywords: [],
           noShow: false,
         };
+      }
+      
+      // 참가자들 중 현재 유저가 아닌 경우만 추가
+      partyInfo.acceptedPartyMembers.forEach((member) => {
+        if (member.id !== loginMember?.id) {
+          initialReviews[member.nickname] = {
+            targetNickname: member.nickname,
+            reviewKeywords: [],
+            noShow: false,
+          };
+        }
       });
+      
       setMemberReviews(initialReviews);
     }
-  }, [partyInfo?.acceptedPartyMembers]);
+  }, [partyInfo?.acceptedPartyMembers, partyInfo?.hostId, partyInfo?.hostNickname, loginMember?.id]);
 
   // 태그 선택/해제 핸들러
-  const handleTagToggle = (memberId: number, tagId: string) => {
+  const handleTagToggle = (nickname: string, tagId: string) => {
     setMemberReviews((prev) => {
-      const memberReview = prev[memberId];
+      const memberReview = prev[nickname];
       const updatedKeywords = memberReview.reviewKeywords.includes(tagId)
         ? memberReview.reviewKeywords.filter((id) => id !== tagId)
         : [...memberReview.reviewKeywords, tagId];
       
       return {
         ...prev,
-        [memberId]: {
+        [nickname]: {
           ...memberReview,
           reviewKeywords: updatedKeywords,
         },
@@ -154,12 +179,12 @@ export default function PartyHistoryModal({
   };
 
   // 노쇼 토글 핸들러
-  const handleNoShowToggle = (memberId: number) => {
+  const handleNoShowToggle = (nickname: string) => {
     setMemberReviews((prev) => ({
       ...prev,
-      [memberId]: {
-        ...prev[memberId],
-        noShow: !prev[memberId].noShow,
+      [nickname]: {
+        ...prev[nickname],
+        noShow: !prev[nickname].noShow,
       },
     }));
   };
@@ -233,14 +258,14 @@ export default function PartyHistoryModal({
         // noShow가 true인 경우, 다른 키워드는 무시하고 NO_SHOW만 전송
         if (review.noShow) {
           return {
-            targetId: review.targetId,
-            reviewKeywords: ["NO_SHOW"],  // NO_SHOW 키워드 추가
+            targetNickname: review.targetNickname,
+            reviewKeywords: ["NO_SHOW"],
             noShow: true
           };
         } else {
           // noShow가 아닌 경우 원래 선택된 키워드 유지
           return {
-            targetId: review.targetId,
+            targetNickname: review.targetNickname,
             reviewKeywords: review.reviewKeywords,
             noShow: false
           };
@@ -411,8 +436,8 @@ export default function PartyHistoryModal({
                       <label className="flex items-center space-x-2 cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={memberReviews[member.id]?.noShow || false}
-                          onChange={() => handleNoShowToggle(member.id)}
+                          checked={memberReviews[member.nickname]?.noShow || false}
+                          onChange={() => handleNoShowToggle(member.nickname)}
                           className="form-checkbox h-4 w-4 text-[#FFB130] rounded border-gray-600"
                         />
                         <span className="text-sm text-gray-300">노쇼</span>
@@ -423,9 +448,9 @@ export default function PartyHistoryModal({
                       {reviewTags.map((tag) => (
                         <button
                           key={tag.id}
-                          onClick={() => handleTagToggle(member.id, tag.id)}
+                          onClick={() => handleTagToggle(member.nickname, tag.id)}
                           className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                            memberReviews[member.id]?.reviewKeywords.includes(tag.id)
+                            memberReviews[member.nickname]?.reviewKeywords.includes(tag.id)
                               ? "bg-[#FFB130] text-white"
                               : "bg-gray-500 text-gray-300 hover:bg-gray-400"
                           }`}
@@ -438,24 +463,24 @@ export default function PartyHistoryModal({
                 ))}
               </div>
             </div>
+
+            {/* 하단 버튼 영역 */}
+            <div className="flex justify-end gap-4 mt-6 pt-4 border-t border-gray-700">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleSubmitReviews}
+                className="px-4 py-2 bg-[#FFB130] text-white rounded hover:bg-[#FFA000] transition-colors"
+              >
+                리뷰 작성 완료
+              </button>
+            </div>
           </div>
         ) : null}
-
-        {/* 하단 버튼 영역 */}
-        <div className="flex justify-end gap-4 mt-6 pt-4 border-t border-gray-700">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
-          >
-            취소
-          </button>
-          <button
-            onClick={handleSubmitReviews}
-            className="px-4 py-2 bg-[#FFB130] text-white rounded hover:bg-[#FFA000] transition-colors"
-          >
-            리뷰 작성 완료
-          </button>
-        </div>
       </div>
     </div>
   );
