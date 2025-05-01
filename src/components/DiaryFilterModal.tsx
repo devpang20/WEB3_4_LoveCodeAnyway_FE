@@ -34,13 +34,7 @@ interface ThemeFilterModalProps {
   isOpen: boolean;
   onClose: () => void;
   onApply: (filters: FilterValues) => void;
-  currentFilters?: {
-    regions: string[];
-    genres: number[];
-    dates: string[];
-    subRegions: string[];
-    genreNames: string[];
-  };
+  currentFilters?: FilterValues;
 }
 
 export function DiaryFilterModal({
@@ -49,8 +43,8 @@ export function DiaryFilterModal({
   onApply,
   currentFilters
 }: ThemeFilterModalProps) {
-  const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
-  const [selectedGenres, setSelectedGenres] = useState<number[]>([]);
+  const [selectedRegions, setSelectedRegions] = useState<string[]>(currentFilters?.regions || []);
+  const [selectedGenres, setSelectedGenres] = useState<number[]>(currentFilters?.genres || []);
   const [activeRegion, setActiveRegion] = useState("서울");
   const [tags, setTags] = useState<Tag[]>([]);
   const [regions, setRegions] = useState<Region[]>([]);
