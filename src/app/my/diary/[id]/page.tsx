@@ -107,11 +107,41 @@ const PlayInfoCard = ({
   );
 };
 
+// 이미지 모달 컴포넌트
+const ImageModal = ({ imageUrl, onClose }: { imageUrl: string; onClose: () => void }) => {
+  return (
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
+      onClick={onClose}
+    >
+      <div 
+        className="relative w-[70vw] h-[70vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <img
+          src={imageUrl}
+          alt="확대된 탈출 사진"
+          className="w-full h-full object-contain"
+        />
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-white hover:text-gray-300"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+};
+
 export default function Page({ params }: { params: Promise<{ id: string }> }) {
   const unwrappedParams = use(params);
   const [diary, setDiary] = useState<DiaryDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showImageModal, setShowImageModal] = useState(false);
   const router = useRouter();
 
   // 삭제 핸들러 함수 추가
@@ -200,7 +230,7 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-gray-900">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* 헤더 - 버튼 영역 */}
         <div className="flex justify-between items-center mb-6">
@@ -226,7 +256,7 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
           <div className="flex gap-2">
             <Link
               href={`/my/diary/edit/${diary.id}`}
-              className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+              className="px-4 py-2 bg-[#FFB130] text-black rounded-lg hover:bg-[#F0A120] transition-colors"
             >
               수정하기
             </Link>
@@ -240,7 +270,7 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
         </div>
 
         {/* 테마 이미지 섹션 */}
-        <div className="bg-white rounded-lg overflow-hidden mb-6 shadow-sm relative">
+        <div className="bg-gray-800 rounded-lg overflow-hidden mb-6 shadow-sm relative">
           <div className="h-[300px] relative">
             {diary.themeImage ? (
               <img
@@ -249,9 +279,9 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gray-100">
+              <div className="w-full h-full flex items-center justify-center bg-gray-700">
                 <svg
-                  className="w-16 h-16 text-gray-400"
+                  className="w-16 h-16 text-gray-500"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -269,7 +299,7 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end">
               <h1 className="text-4xl font-bold text-white p-8 w-full">
                 {diary.themeName}
-                <div className="text-lg font-normal mt-2 text-gray-200">
+                <div className="text-lg font-normal mt-2 text-gray-300">
                   {diary.storeName}
                 </div>
               </h1>
@@ -280,34 +310,21 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
         {/* 2열 레이아웃: 탈출 사진 카드 | 플레이 정보 카드 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           {/* 탈출 사진 카드 */}
-          <div className="bg-white rounded-lg shadow-sm p-6 flex flex-col">
-            <h2 className="text-lg font-semibold mb-4">탈출 사진</h2>
+          <div className="bg-gray-800 rounded-lg shadow-sm p-6 flex flex-col">
+            <h2 className="text-lg font-semibold mb-4 text-white">탈출 사진</h2>
             <div className="flex-1 relative h-[200px]">
-              <div className="absolute inset-0 rounded-lg overflow-hidden bg-gray-100">
+              <div className="absolute inset-0 rounded-lg overflow-hidden bg-gray-700">
                 {diary.escapeImages && diary.escapeImages.length > 0 ? (
-                  <Slider
-                    dots={true}
-                    infinite={true}
-                    speed={500}
-                    slidesToShow={1}
-                    slidesToScroll={1}
-                    arrows={true}
-                    className="h-full"
-                  >
-                    {diary.escapeImages.map((image, index) => (
-                      <div key={index} className="h-full">
-                        <img
-                          src={image}
-                          alt={`탈출 사진 ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    ))}
-                  </Slider>
+                  <img
+                    src={diary.escapeImages[0]}
+                    alt="탈출 사진"
+                    className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => setShowImageModal(true)}
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <svg
-                      className="w-16 h-16 text-gray-400"
+                      className="w-16 h-16 text-gray-500"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -325,66 +342,37 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
             </div>
           </div>
 
-          {/* Add custom styles for the slider */}
-          <style jsx global>{`
-            .slick-prev,
-            .slick-next {
-              z-index: 1;
-              width: 30px;
-              height: 30px;
-            }
-            .slick-prev {
-              left: 10px;
-            }
-            .slick-next {
-              right: 10px;
-            }
-            .slick-prev:before,
-            .slick-next:before {
-              font-size: 30px;
-            }
-            .slick-dots {
-              bottom: 10px;
-            }
-            .slick-dots li button:before {
-              color: white;
-            }
-            .slick-dots li.slick-active button:before {
-              color: white;
-            }
-          `}</style>
-
           {/* 플레이 정보 카드 */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold mb-6">플레이 정보</h2>
+          <div className="bg-gray-800 rounded-lg shadow-sm p-6">
+            <h2 className="text-lg font-semibold mb-6 text-white">플레이 정보</h2>
 
             {/* 기본 정보 */}
             <div className="mb-4">
-              <h3 className="text-md font-medium mb-4 text-gray-600">기본 정보</h3>
+              <h3 className="text-md font-medium mb-4 text-gray-300">기본 정보</h3>
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="bg-gray-700 p-4 rounded-lg">
                   <div className="flex items-center space-x-4">
-                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center flex-shrink-0">
+                      <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">플레이 날짜</p>
-                      <p className="text-sm font-medium">{diary.playDate}</p>
+                      <p className="text-xs text-gray-400">플레이 날짜</p>
+                      <p className="text-sm font-medium text-white">{diary.playDate}</p>
                     </div>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="bg-gray-700 p-4 rounded-lg">
                   <div className="flex items-center space-x-4">
-                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center flex-shrink-0">
+                      <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                       </svg>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">참여자</p>
-                      <p className="text-sm font-medium">{diary.participants}</p>
+                      <p className="text-xs text-gray-400">참여자</p>
+                      <p className="text-sm font-medium text-white">{diary.participants}</p>
                     </div>
                   </div>
                 </div>
@@ -392,54 +380,54 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
             </div>
 
             {/* 구분선 */}
-            <div className="border-t border-gray-200 my-6"></div>
+            <div className="border-t border-gray-700 my-6"></div>
 
             {/* 플레이 결과 */}
             <div>
-              <h3 className="text-md font-medium mb-4 text-gray-600">플레이 결과</h3>
+              <h3 className="text-md font-medium mb-4 text-gray-300">플레이 결과</h3>
               <div className="grid grid-cols-3 gap-4">
-                <div className={`bg-gray-50 p-4 rounded-lg ${diary.isSuccess ? 'bg-green-50' : 'bg-red-50'}`}>
+                <div className={`bg-gray-700 p-4 rounded-lg ${diary.isSuccess ? 'bg-green-900/30' : 'bg-red-900/30'}`}>
                   <div className="flex flex-col items-center">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${diary.isSuccess ? 'bg-green-100' : 'bg-red-100'}`}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${diary.isSuccess ? 'bg-green-800' : 'bg-red-800'}`}>
                       {diary.isSuccess ? (
-                        <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                         </svg>
                       ) : (
-                        <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       )}
                     </div>
                     <div className="text-center">
-                      <p className="text-sm font-medium mb-1">{diary.isSuccess ? "성공" : "실패"}</p>
-                      <p className="text-xs text-gray-500">탈출 성공</p>
+                      <p className="text-sm font-medium mb-1 text-white">{diary.isSuccess ? "성공" : "실패"}</p>
+                      <p className="text-xs text-gray-400">탈출 성공</p>
                     </div>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="bg-gray-700 p-4 rounded-lg">
                   <div className="flex flex-col items-center">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mb-2">
-                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-10 h-10 rounded-full bg-blue-900 flex items-center justify-center mb-2">
+                      <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
                     <div className="text-center">
-                      <p className="text-sm font-medium mb-1">{diary.escapeTime}</p>
-                      <p className="text-xs text-gray-500">탈출 시간</p>
+                      <p className="text-sm font-medium mb-1 text-white">{diary.escapeTime}</p>
+                      <p className="text-xs text-gray-400">탈출 시간</p>
                     </div>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="bg-gray-700 p-4 rounded-lg">
                   <div className="flex flex-col items-center">
-                    <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center mb-2">
-                      <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-10 h-10 rounded-full bg-yellow-900 flex items-center justify-center mb-2">
+                      <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                       </svg>
                     </div>
                     <div className="text-center">
-                      <p className="text-sm font-medium mb-1">{diary.hintCount}회</p>
-                      <p className="text-xs text-gray-500">힌트 사용</p>
+                      <p className="text-sm font-medium mb-1 text-white">{diary.hintCount}회</p>
+                      <p className="text-xs text-gray-400">힌트 사용</p>
                     </div>
                   </div>
                 </div>
@@ -449,13 +437,13 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
         </div>
 
         {/* 테마 평가 및 특성 통합 섹션 */}
-        <div className="bg-white rounded-lg shadow-sm mb-6 p-6">
-          <h2 className="text-lg font-semibold mb-6">테마 평가</h2>
+        <div className="bg-gray-800 rounded-lg shadow-sm mb-6 p-6">
+          <h2 className="text-lg font-semibold mb-6 text-white">테마 평가</h2>
           
           {/* 테마 특성 */}
           <div className="mb-8">
-            <h3 className="text-md font-medium mb-4 text-gray-600">테마 특성</h3>
-            <div className="flex justify-around items-center">
+            <h3 className="text-md font-medium mb-4 text-gray-300">테마 특성</h3>
+            <div className="flex justify-around items-center text-white">
               <CircularRating value={diary.ratings.difficulty} label="난이도" />
               <CircularRating value={diary.ratings.horror} label="공포도" />
               <CircularRating value={diary.ratings.activity} label="활동성" />
@@ -463,11 +451,11 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
           </div>
 
           {/* 구분선 */}
-          <div className="border-t border-gray-200 my-6"></div>
+          <div className="border-t border-gray-700 my-6"></div>
 
           {/* 상세 평가 */}
           <div>
-            <h3 className="text-md font-medium mb-4 text-gray-600">상세 평가</h3>
+            <h3 className="text-md font-medium mb-4 text-gray-300">상세 평가</h3>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
               {[
                 { id: "interior", label: "인테리어", color: "yellow" },
@@ -477,8 +465,8 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
                 { id: "satisfaction", label: "만족도", color: "yellow" },
                 { id: "deviceRatio", label: "장치 비중", color: "yellow" },
               ].map((item) => (
-                <div key={item.id} className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-gray-500 mb-2 text-sm">{item.label}</p>
+                <div key={item.id} className="bg-gray-700 p-4 rounded-lg">
+                  <p className="text-gray-300 mb-2 text-sm">{item.label}</p>
                   <div className="flex items-center">
                     {Array.from({ length: 5 }).map((_, i) => (
                       <svg
@@ -486,7 +474,7 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
                         className={`w-5 h-5 ${
                           i < diary.ratings[item.id as keyof typeof diary.ratings]
                             ? "text-[#FFB130]"
-                            : "text-gray-200"
+                            : "text-gray-600"
                         }`}
                         fill="currentColor"
                         viewBox="0 0 20 20"
@@ -502,14 +490,22 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
         </div>
 
         {/* 리뷰 카드 */}
-        <div className="bg-white rounded-lg shadow-sm mb-6 p-6">
-          <h2 className="text-lg font-semibold mb-6">리뷰</h2>
-          <div className="bg-gray-50 p-6 rounded-lg">
-            <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+        <div className="bg-gray-800 rounded-lg shadow-sm mb-6 p-6">
+          <h2 className="text-lg font-semibold mb-6 text-white">리뷰</h2>
+          <div className="bg-gray-700 p-6 rounded-lg">
+            <p className="text-gray-300 whitespace-pre-wrap leading-relaxed">
               {diary.comment}
             </p>
           </div>
         </div>
+
+        {/* 이미지 모달 */}
+        {showImageModal && diary?.escapeImages && diary.escapeImages.length > 0 && (
+          <ImageModal
+            imageUrl={diary.escapeImages[0]}
+            onClose={() => setShowImageModal(false)}
+          />
+        )}
       </div>
     </main>
   );

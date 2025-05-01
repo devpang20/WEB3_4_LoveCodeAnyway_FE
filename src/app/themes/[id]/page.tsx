@@ -313,22 +313,7 @@ export default function ThemeDetailPage() {
           </div>
           <div className="flex justify-between items-center">
             <div className="flex gap-6">
-              {themeDetail.diaryBasedThemeStat && (
-                <>
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-400">유저 탈출률</span>
-                    <span className="font-bold text-xl text-white">
-                      {themeDetail.diaryBasedThemeStat.escapeResult || 0}%
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-400">노힌트 탈출률</span>
-                    <span className="font-bold text-xl text-white">
-                      {themeDetail.diaryBasedThemeStat.noHintEscapeRate || 0}%
-                    </span>
-                  </div>
-                </>
-              )}
+              {/* Empty div to maintain layout balance */}
             </div>
             <div className="flex gap-6">
               <div className="flex items-center gap-2">
