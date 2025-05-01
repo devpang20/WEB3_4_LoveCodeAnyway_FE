@@ -134,7 +134,6 @@ export function ThemeSearch({
           isOpen={isFilterModalOpen}
           onClose={() => onFilterModalOpenChange(false)}
           onApply={handleFilterApply}
-          currentFilters={currentFilters}
         />
       )}
     </div>

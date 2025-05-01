@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import client from "@/lib/backend/client";
 
 interface Tag {
   id: number;
@@ -13,6 +14,14 @@ interface Region {
 interface Participant {
   id: string;
   name: string;
+}
+
+interface FilterValues {
+  regions: string[];
+  genres: number[];
+  participant: string;
+  subRegions: string[];
+  genreNames: string[];
 }
 
 interface ThemeFilterModalProps {
@@ -66,20 +75,20 @@ export function ThemeFilterModal({
   const fetchRegions = async () => {
     setLoadingRegions(true);
     try {
-      const response = await fetch(
-        `${
-          process.env.NODE_ENV === "development"
-            ? "http://localhost:8080"
-            : "https://api.ddobang.site"
-        }/api/v1/regions?majorRegion=서울`,
-        {
-          credentials: "include",
+      const response = await client.GET("/api/v1/regions", {
+        params: {
+          query: {
+            majorRegion: activeRegion
+          }
         }
-      );
-      const data = await response.json();
+      });
 
-      if (data && data.data) {
-        setRegions(data.data);
+      if (response?.data?.data) {
+        const regionsData: Region[] = response.data.data.map((item: any) => ({
+          id: Number(item.id),
+          subRegion: String(item.subRegion)
+        }));
+        setRegions(regionsData);
       }
     } catch (error) {
       console.error("지역 목록을 불러오는 중 오류가 발생했습니다:", error);
@@ -91,20 +100,13 @@ export function ThemeFilterModal({
   const fetchTags = async () => {
     setLoading(true);
     try {
-      const response = await fetch(
-        `${
-          process.env.NODE_ENV === "development"
-            ? "http://localhost:8080"
-            : "https://api.ddobang.site"
-        }/api/v1/themes/tags`,
-        {
-          credentials: "include",
-        }
-      );
-      const data = await response.json();
-
-      if (data && data.data) {
-        setTags(data.data);
+      const response = await client.GET("/api/v1/themes/tags");
+      if (response?.data?.data) {
+        const tagsData: Tag[] = response.data.data.map((item: any) => ({
+          id: Number(item.id),
+          name: String(item.name)
+        }));
+        setTags(tagsData);
       }
     } catch (error) {
       console.error("태그 목록을 불러오는 중 오류가 발생했습니다:", error);
@@ -113,12 +115,15 @@ export function ThemeFilterModal({
     }
   };
 
-  const handleRegionToggle = (region: string) => {
-    setSelectedRegions((prev) =>
-      prev.includes(region)
-        ? prev.filter((r) => r !== region)
-        : [...prev, region]
-    );
+  const handleRegionToggle = (regionId: number) => {
+    setSelectedRegions((prev) => {
+      const regionIdStr = regionId.toString();
+      if (prev.includes(regionIdStr)) {
+        return prev.filter((r) => r !== regionIdStr);
+      } else {
+        return [...prev, regionIdStr];
+      }
+    });
   };
 
   const handleGenreToggle = (tagId: number) => {
@@ -135,28 +140,7 @@ export function ThemeFilterModal({
 
   const handleRegionClick = async (majorRegion: string) => {
     setActiveRegion(majorRegion);
-    setLoadingRegions(true);
-    try {
-      const response = await fetch(
-        `${
-          process.env.NODE_ENV === "development"
-            ? "http://localhost:8080"
-            : "https://api.ddobang.site"
-        }/api/v1/regions?majorRegion=${majorRegion}`,
-        {
-          credentials: "include",
-        }
-      );
-      const data = await response.json();
-
-      if (data && data.data) {
-        setRegions(data.data);
-      }
-    } catch (error) {
-      console.error("지역 목록을 불러오는 중 오류가 발생했습니다:", error);
-    } finally {
-      setLoadingRegions(false);
-    }
+    await fetchRegions();
   };
 
   const handleReset = () => {
@@ -167,17 +151,22 @@ export function ThemeFilterModal({
   };
 
   const handleApply = () => {
-    const filters = {
-      regionId: selectedRegions
-        .map((region) => {
-          const regionObj = regions.find((r) => r.subRegion === region);
-          return regionObj ? regionObj.id : null;
-        })
-        .filter((id) => id !== null),
-      tagIds: selectedGenres,
-      participants: selectedParticipant
-        ? parseInt(selectedParticipant)
-        : undefined,
+    const selectedSubRegions = selectedRegions.map(regionId => {
+      const region = regions.find(r => r.id === parseInt(regionId));
+      return region ? region.subRegion : '';
+    }).filter(Boolean);
+
+    const selectedGenreNames = selectedGenres.map(genreId => {
+      const tag = tags.find(t => t.id === genreId);
+      return tag ? tag.name : '';
+    }).filter(Boolean);
+
+    const filters: FilterValues = {
+      regions: selectedRegions,
+      genres: selectedGenres,
+      participant: selectedParticipant,
+      subRegions: selectedSubRegions,
+      genreNames: selectedGenreNames
     };
     onApply(filters);
     onClose();
@@ -185,7 +174,15 @@ export function ThemeFilterModal({
 
   const getSelectedFiltersText = () => {
     const regionText =
-      selectedRegions.length > 0 ? `지역: ${selectedRegions.join(", ")}` : "";
+      selectedRegions.length > 0
+        ? `지역: ${selectedRegions
+            .map((regionId) => {
+              const region = regions.find((r) => r.id === parseInt(regionId));
+              return region ? region.subRegion : "";
+            })
+            .filter(Boolean)
+            .join(", ")}`
+        : "";
 
     const genreText =
       selectedGenres.length > 0
@@ -292,10 +289,10 @@ export function ThemeFilterModal({
                               type="checkbox"
                               id={region.subRegion}
                               checked={selectedRegions.includes(
-                                region.subRegion
+                                region.id.toString()
                               )}
                               onChange={() =>
-                                handleRegionToggle(region.subRegion)
+                                handleRegionToggle(region.id)
                               }
                               className="peer w-4 h-4 rounded border border-gray-600 text-[#FFB230] focus:ring-[#FFB230] focus:ring-2 focus:ring-offset-2 cursor-pointer appearance-none checked:bg-[#FFB230] checked:border-[#FFB230] transition-colors"
                             />
@@ -313,7 +310,7 @@ export function ThemeFilterModal({
                             <label
                               htmlFor={region.subRegion}
                               className={`ml-2 text-sm cursor-pointer select-none ${
-                                selectedRegions.includes(region.subRegion)
+                                selectedRegions.includes(region.id.toString())
                                   ? "text-[#FFB230] font-medium"
                                   : "text-gray-300 group-hover:text-gray-200"
                               }`}
@@ -339,188 +336,19 @@ export function ThemeFilterModal({
                     <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-300"></div>
                   </div>
                 ) : (
-                  <>
+                  tags.map((tag) => (
                     <button
-                      onClick={() => handleGenreToggle(0)}
+                      key={tag.id}
+                      onClick={() => handleGenreToggle(tag.id)}
                       className={`text-sm rounded-lg border px-3 py-2 transition-colors ${
-                        selectedGenres.includes(0)
+                        selectedGenres.includes(tag.id)
                           ? "bg-[#FFB230] text-white border-[#FFB230]"
                           : "border-gray-600 text-gray-300 hover:bg-gray-700"
                       }`}
                     >
-                      스릴러
+                      {tag.name}
                     </button>
-                    <button
-                      onClick={() => handleGenreToggle(1)}
-                      className={`text-sm rounded-lg border px-3 py-2 transition-colors ${
-                        selectedGenres.includes(1)
-                          ? "bg-[#FFB230] text-white border-[#FFB230]"
-                          : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                      }`}
-                    >
-                      판타지
-                    </button>
-                    <button
-                      onClick={() => handleGenreToggle(2)}
-                      className={`text-sm rounded-lg border px-3 py-2 transition-colors ${
-                        selectedGenres.includes(2)
-                          ? "bg-[#FFB230] text-white border-[#FFB230]"
-                          : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                      }`}
-                    >
-                      추리
-                    </button>
-                    <button
-                      onClick={() => handleGenreToggle(3)}
-                      className={`text-sm rounded-lg border px-3 py-2 transition-colors ${
-                        selectedGenres.includes(3)
-                          ? "bg-[#FFB230] text-white border-[#FFB230]"
-                          : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                      }`}
-                    >
-                      호러/공포
-                    </button>
-                    <button
-                      onClick={() => handleGenreToggle(4)}
-                      className={`text-sm rounded-lg border px-3 py-2 transition-colors ${
-                        selectedGenres.includes(4)
-                          ? "bg-[#FFB230] text-white border-[#FFB230]"
-                          : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                      }`}
-                    >
-                      잠입
-                    </button>
-                    <button
-                      onClick={() => handleGenreToggle(5)}
-                      className={`text-sm rounded-lg border px-3 py-2 transition-colors ${
-                        selectedGenres.includes(5)
-                          ? "bg-[#FFB230] text-white border-[#FFB230]"
-                          : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                      }`}
-                    >
-                      코미디
-                    </button>
-                    <button
-                      onClick={() => handleGenreToggle(6)}
-                      className={`text-sm rounded-lg border px-3 py-2 transition-colors ${
-                        selectedGenres.includes(6)
-                          ? "bg-[#FFB230] text-white border-[#FFB230]"
-                          : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                      }`}
-                    >
-                      모험/탈험
-                    </button>
-                    <button
-                      onClick={() => handleGenreToggle(7)}
-                      className={`text-sm rounded-lg border px-3 py-2 transition-colors ${
-                        selectedGenres.includes(7)
-                          ? "bg-[#FFB230] text-white border-[#FFB230]"
-                          : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                      }`}
-                    >
-                      감성
-                    </button>
-                    <button
-                      onClick={() => handleGenreToggle(8)}
-                      className={`text-sm rounded-lg border px-3 py-2 transition-colors ${
-                        selectedGenres.includes(8)
-                          ? "bg-[#FFB230] text-white border-[#FFB230]"
-                          : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                      }`}
-                    >
-                      드라마
-                    </button>
-                    <button
-                      onClick={() => handleGenreToggle(9)}
-                      className={`text-sm rounded-lg border px-3 py-2 transition-colors ${
-                        selectedGenres.includes(9)
-                          ? "bg-[#FFB230] text-white border-[#FFB230]"
-                          : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                      }`}
-                    >
-                      범죄
-                    </button>
-                    <button
-                      onClick={() => handleGenreToggle(10)}
-                      className={`text-sm rounded-lg border px-3 py-2 transition-colors ${
-                        selectedGenres.includes(10)
-                          ? "bg-[#FFB230] text-white border-[#FFB230]"
-                          : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                      }`}
-                    >
-                      미스터리
-                    </button>
-                    <button
-                      onClick={() => handleGenreToggle(11)}
-                      className={`text-sm rounded-lg border px-3 py-2 transition-colors ${
-                        selectedGenres.includes(11)
-                          ? "bg-[#FFB230] text-white border-[#FFB230]"
-                          : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                      }`}
-                    >
-                      SF
-                    </button>
-                    <button
-                      onClick={() => handleGenreToggle(12)}
-                      className={`text-sm rounded-lg border px-3 py-2 transition-colors ${
-                        selectedGenres.includes(12)
-                          ? "bg-[#FFB230] text-white border-[#FFB230]"
-                          : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                      }`}
-                    >
-                      19금
-                    </button>
-                    <button
-                      onClick={() => handleGenreToggle(13)}
-                      className={`text-sm rounded-lg border px-3 py-2 transition-colors ${
-                        selectedGenres.includes(13)
-                          ? "bg-[#FFB230] text-white border-[#FFB230]"
-                          : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                      }`}
-                    >
-                      액션
-                    </button>
-                    <button
-                      onClick={() => handleGenreToggle(14)}
-                      className={`text-sm rounded-lg border px-3 py-2 transition-colors ${
-                        selectedGenres.includes(14)
-                          ? "bg-[#FFB230] text-white border-[#FFB230]"
-                          : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                      }`}
-                    >
-                      역사
-                    </button>
-                    <button
-                      onClick={() => handleGenreToggle(15)}
-                      className={`text-sm rounded-lg border px-3 py-2 transition-colors ${
-                        selectedGenres.includes(15)
-                          ? "bg-[#FFB230] text-white border-[#FFB230]"
-                          : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                      }`}
-                    >
-                      로맨스
-                    </button>
-                    <button
-                      onClick={() => handleGenreToggle(16)}
-                      className={`text-sm rounded-lg border px-3 py-2 transition-colors ${
-                        selectedGenres.includes(16)
-                          ? "bg-[#FFB230] text-white border-[#FFB230]"
-                          : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                      }`}
-                    >
-                      야외
-                    </button>
-                    <button
-                      onClick={() => handleGenreToggle(17)}
-                      className={`text-sm rounded-lg border px-3 py-2 transition-colors ${
-                        selectedGenres.includes(17)
-                          ? "bg-[#FFB230] text-white border-[#FFB230]"
-                          : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                      }`}
-                    >
-                      타임어택
-                    </button>
-                  </>
+                  ))
                 )}
               </div>
             </div>

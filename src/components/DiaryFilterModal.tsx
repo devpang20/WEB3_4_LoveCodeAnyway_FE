@@ -278,7 +278,7 @@ export function DiaryFilterModal({
       ></div>
       <div className="bg-gray-800 rounded-2xl w-full max-w-[1105px] p-4 md:p-8 mx-4 my-4 shadow-lg relative">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-white">검색 필터 - 모임</h2>
+          <h2 className="text-xl font-bold text-white">검색 필터 - 일지</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-300"

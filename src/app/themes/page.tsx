@@ -20,6 +20,9 @@ export default function ThemesPage() {
   });
   const observer = useRef<IntersectionObserver | null>(null);
   const ITEMS_PER_PAGE = 8;
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [filterSubRegions, setFilterSubRegions] = useState<string[]>([]);
+  const [filterGenreNames, setFilterGenreNames] = useState<string[]>([]);
 
   // 마지막 요소 관찰을 위한 ref callback
   const lastThemeElementRef = useCallback(
@@ -110,15 +113,128 @@ export default function ThemesPage() {
     loadMoreThemes(true);
   };
 
-  const handleFilterApply = (filters: any) => {
-    setSelectedFilters({
+  // 필터 초기화 함수
+  const resetAllFilters = async () => {
+    setSearchKeyword("");
+    const newFilters = {
+      regionId: [],
+      tagIds: [],
+      participants: "",
+    };
+    setSelectedFilters(newFilters);
+    setFilterSubRegions([]);
+    setFilterGenreNames([]);
+
+    // 초기화된 필터로 API 호출
+    const response = await client.POST("/api/v1/themes", {
+      params: {
+        query: {
+          page: 0,
+          size: ITEMS_PER_PAGE,
+        },
+      },
+      body: {
+        regionId: [],
+        tagIds: [],
+        keyword: "",
+        participants: undefined,
+      },
+    });
+
+    if (response?.data?.data) {
+      const apiThemes = response.data.data.content || [];
+      const hasNext = response.data.data.hasNext || false;
+
+      setHasMore(hasNext);
+      setThemes(apiThemes.map((theme: any) => ({
+        id: theme.id?.toString(),
+        title: theme.name || "",
+        category: theme.storeName || "",
+        date: "오늘",
+        location: theme.storeName?.split(" ")[0] || "",
+        participants: theme.recommendedParticipants || "2-4인",
+        subInfo: theme.runtime ? `${theme.runtime}분` : "",
+        tags: theme.tags || [],
+        image: theme.thumbnailUrl || "/images/mystery-room.jpg",
+        rating: "80",
+      })));
+    }
+  };
+
+  // 특정 필터 제거 함수
+  const removeFilter = (filterType: 'keyword' | 'region' | 'genre' | 'participant') => {
+    const newFilters = { ...selectedFilters };
+
+    switch (filterType) {
+      case 'keyword':
+        setSearchKeyword("");
+        break;
+      case 'region':
+        newFilters.regionId = [];
+        setFilterSubRegions([]);
+        break;
+      case 'genre':
+        newFilters.tagIds = [];
+        setFilterGenreNames([]);
+        break;
+      case 'participant':
+        newFilters.participants = "";
+        break;
+    }
+
+    setSelectedFilters(newFilters);
+    loadMoreThemes(true);
+  };
+
+  const handleFilterApply = async (filters: any) => {
+    const newFilters = {
       regionId: Array.isArray(filters.regions)
         ? filters.regions.map((region: string) => parseInt(region))
         : [],
-      tagIds: filters.tagIds || [],
+      tagIds: filters.genres || [],
       participants: filters.participant || "",
+    };
+
+    setSelectedFilters(newFilters);
+    setFilterSubRegions(filters.subRegions || []);
+    setFilterGenreNames(filters.genreNames || []);
+
+    // API 호출 시 새로운 필터 값 사용
+    const response = await client.POST("/api/v1/themes", {
+      params: {
+        query: {
+          page: 0,
+          size: ITEMS_PER_PAGE,
+        },
+      },
+      body: {
+        regionId: newFilters.regionId,
+        tagIds: newFilters.tagIds,
+        keyword: searchKeyword,
+        participants: newFilters.participants
+          ? parseInt(newFilters.participants.replace(/[^0-9]/g, ""))
+          : undefined,
+      },
     });
-    loadMoreThemes(true);
+
+    if (response?.data?.data) {
+      const apiThemes = response.data.data.content || [];
+      const hasNext = response.data.data.hasNext || false;
+
+      setHasMore(hasNext);
+      setThemes(apiThemes.map((theme: any) => ({
+        id: theme.id?.toString(),
+        title: theme.name || "",
+        category: theme.storeName || "",
+        date: "오늘",
+        location: theme.storeName?.split(" ")[0] || "",
+        participants: theme.recommendedParticipants || "2-4인",
+        subInfo: theme.runtime ? `${theme.runtime}분` : "",
+        tags: theme.tags || [],
+        image: theme.thumbnailUrl || "/images/mystery-room.jpg",
+        rating: "80",
+      })));
+    }
   };
 
   useEffect(() => {
@@ -163,7 +279,116 @@ export default function ThemesPage() {
         <ThemeSearch
           onSearch={handleSearch}
           onFilterApply={handleFilterApply}
+          searchTerm={searchKeyword}
+          onSearchTermChange={setSearchKeyword}
+          isFilterModalOpen={filterModalOpen}
+          onFilterModalOpenChange={setFilterModalOpen}
+          filterType="theme"
         />
+
+        {/* 활성화된 필터 표시 */}
+        <div className="flex flex-wrap gap-2 mt-3">
+          {searchKeyword && (
+            <div className="inline-flex items-center px-2 py-1 bg-gray-700 text-white rounded-full text-xs">
+              <span>검색어: {searchKeyword}</span>
+              <button
+                onClick={() => removeFilter('keyword')}
+                className="ml-1.5 hover:text-gray-300"
+              >
+                <svg
+                  className="w-3 h-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+          )}
+          {filterSubRegions.length > 0 && (
+            <div className="inline-flex items-center px-2 py-1 bg-gray-700 text-white rounded-full text-xs">
+              <span>지역: {filterSubRegions.join(", ")}</span>
+              <button
+                onClick={() => removeFilter('region')}
+                className="ml-1.5 hover:text-gray-300"
+              >
+                <svg
+                  className="w-3 h-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+          )}
+          {filterGenreNames.length > 0 && (
+            <div className="inline-flex items-center px-2 py-1 bg-gray-700 text-white rounded-full text-xs">
+              <span>장르: {filterGenreNames.join(", ")}</span>
+              <button
+                onClick={() => removeFilter('genre')}
+                className="ml-1.5 hover:text-gray-300"
+              >
+                <svg
+                  className="w-3 h-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+          )}
+          {selectedFilters.participants && (
+            <div className="inline-flex items-center px-2 py-1 bg-gray-700 text-white rounded-full text-xs">
+              <span>인원: {selectedFilters.participants}명</span>
+              <button
+                onClick={() => removeFilter('participant')}
+                className="ml-1.5 hover:text-gray-300"
+              >
+                <svg
+                  className="w-3 h-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+          )}
+          {(searchKeyword || selectedFilters.regionId.length || selectedFilters.tagIds.length || selectedFilters.participants) && (
+            <button
+              onClick={resetAllFilters}
+              className="inline-flex items-center px-2 py-1 bg-black text-white rounded-full text-xs hover:bg-gray-800"
+            >
+              필터 초기화
+            </button>
+          )}
+        </div>
 
         {initialLoading ? (
           <PageLoading />
