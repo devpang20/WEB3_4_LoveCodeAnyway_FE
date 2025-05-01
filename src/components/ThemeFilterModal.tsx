@@ -68,12 +68,10 @@ export function ThemeFilterModal({
   ];
 
   useEffect(() => {
-    console.log("ThemeFilterModal - isOpen 변경됨:", isOpen);
     if (isOpen) {
       fetchTags();
       fetchRegions();
       // 모달이 열릴 때 currentFilters 값으로 상태 초기화
-      console.log("ThemeFilterModal - 모달 열림, currentFilters:", currentFilters);
       setSelectedRegions(currentFilters?.regions || []);
       setSelectedGenres(currentFilters?.genres || []);
       setSelectedParticipant(currentFilters?.participant || "");
@@ -152,7 +150,6 @@ export function ThemeFilterModal({
   };
 
   const handleReset = () => {
-    console.log("ThemeFilterModal - handleReset 호출");
     setSelectedRegions([]);
     setSelectedGenres([]);
     setSelectedParticipant("");
@@ -160,11 +157,6 @@ export function ThemeFilterModal({
   };
 
   const handleApply = () => {
-    console.log("ThemeFilterModal - handleApply 호출", {
-      selectedRegions,
-      selectedGenres,
-      selectedParticipant
-    });
     const selectedSubRegions = selectedRegions.map(regionId => {
       const region = regions.find(r => r.id === parseInt(regionId));
       return region ? region.subRegion : '';

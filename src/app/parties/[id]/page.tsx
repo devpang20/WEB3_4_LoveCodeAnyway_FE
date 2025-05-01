@@ -58,7 +58,7 @@ interface PartyDetailResponse {
   hostProfilePictureUrl?: string;
   recruitableCount?: number;
   totalParticipants?: number;
-  acceptedPartyMembers?: PartyMemberSummaries[];
+  acceptedParticipantsCount?: PartyMemberSummaries[];
   AppliedPartyMembers?: PartyMemberSummaries[];
   rookieAvailable?: boolean;
   themeId?: number;
@@ -371,7 +371,6 @@ export default function PartyDetailPage() {
 
   // 참가자 목록에 모임장 포함 여부 확인
   const acceptedMembersCount =
-    partyData.acceptedPartyMembers?.length +
       partyData.acceptedParticipantsCount || 0;
   // const acceptedMembersCount = partyData.acceptedParticipantsCount || 0;
   console.log("acceptedMembersCount", acceptedMembersCount);

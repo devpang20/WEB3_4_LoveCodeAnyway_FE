@@ -243,10 +243,17 @@ export default function HomePage() {
                                                   <div className="flex items-center justify-between mb-3">
                                                       <div className="text-gray-300 text-sm">{party.storeName}</div>
                                                       <div className="text-red-500 text-sm font-medium">
-                                                          {new Date(party.scheduledAt).toDateString() ===
-                                                          new Date().toDateString()
-                                                              ? '오늘마감'
-                                                              : 'D-1'}
+                                                          {(() => {
+                                                              const scheduledDate = new Date(party.scheduledAt);
+                                                              const today = new Date();
+                                                              const diffTime = scheduledDate.getTime() - today.getTime();
+                                                              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                                                              
+                                                              if (diffDays === 0) return '오늘마감';
+                                                              if (diffDays === 1) return 'D-1';
+                                                              if (diffDays < 0) return '마감';
+                                                              return `D-${diffDays}`;
+                                                          })()}
                                                       </div>
                                                   </div>
 
@@ -295,7 +302,14 @@ export default function HomePage() {
                                                           {party.acceptedParticipantCount}/{party.totalParticipants}명
                                                       </span>
                                                       <span className="mx-2">•</span>
-                                                      <span>{new Date(party.scheduledAt).toLocaleDateString()}</span>
+                                                      <span>{new Date(party.scheduledAt).toLocaleString('ko-KR', {
+                                                          year: 'numeric',
+                                                          month: '2-digit',
+                                                          day: '2-digit',
+                                                          hour: '2-digit',
+                                                          minute: '2-digit',
+                                                          hour12: false
+                                                      })}</span>
                                                   </div>
                                               </div>
                                           </Link>

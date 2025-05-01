@@ -119,7 +119,6 @@ export default function ThemeDetailPage() {
         const response = await client.GET(`/api/v1/themes/${themeId}`);
 
         if (response?.data?.data) {
-          console.log(response.data.data);
           setThemeDetail(response.data.data);
         } else {
           throw new Error("응답 데이터가 올바르지 않습니다.");

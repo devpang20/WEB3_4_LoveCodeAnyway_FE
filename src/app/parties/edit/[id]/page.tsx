@@ -133,7 +133,7 @@ export default function EditPartyPage() {
           const partyData = response.data.data;
 
           // 모임장인지 확인
-          if (partyData.hostId !== loginMember.data.id) {
+          if (partyData.hostId !== loginMember.id) {
             alert("모임 수정 권한이 없습니다.");
             router.push(`/parties/${partyId}`);
             return;
@@ -314,23 +314,23 @@ export default function EditPartyPage() {
   // 로딩 중 표시
   if (loading) {
     return (
-      <main className="bg-gray-50 min-h-screen">
+      <main className="bg-gray-900 min-h-screen">
         <div className="max-w-7xl mx-auto px-6 py-12 flex justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="bg-gray-50 min-h-screen">
+    <main className="bg-gray-900 min-h-screen">
 
-      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 py-8">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8">
-          <h1 className="text-2xl font-bold mb-6">모임 정보 수정</h1>
+      <div className="max-w-4xl mx-auto px-6 sm:px-8 lg:px-10 py-8">
+        <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-sm p-8">
+          <h1 className="text-2xl font-bold mb-6 text-white">모임 정보 수정</h1>
 
           {error && (
-            <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg border border-red-200">
+            <div className="mb-6 p-4 bg-red-900 text-red-200 rounded-lg border border-red-700">
               {error}
             </div>
           )}
@@ -340,7 +340,7 @@ export default function EditPartyPage() {
             <div>
               <label
                 htmlFor="title"
-                className="block text-sm font-medium text-gray-700 mb-1"
+                className="block text-sm font-medium text-gray-300 mb-1"
               >
                 모임 제목
               </label>
@@ -350,7 +350,7 @@ export default function EditPartyPage() {
                 name="title"
                 value={formData.title}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
+                className="w-full px-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:border-[#FFB130] bg-gray-700 text-white"
                 placeholder="모임 제목을 입력해주세요"
                 required
               />
@@ -358,7 +358,7 @@ export default function EditPartyPage() {
 
             {/* 모임 테마 */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
                 모임 테마
               </label>
               <div className="flex gap-2">
@@ -366,7 +366,7 @@ export default function EditPartyPage() {
                   type="text"
                   value={formData.themeName}
                   readOnly
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                  className="flex-1 px-4 py-2 border border-gray-600 rounded-lg bg-gray-700 text-white"
                   placeholder="테마를 선택해주세요"
                 />
                 <button
@@ -383,7 +383,7 @@ export default function EditPartyPage() {
             <div>
               <label
                 htmlFor="date"
-                className="block text-sm font-medium text-gray-700 mb-1"
+                className="block text-sm font-medium text-gray-300 mb-1"
               >
                 모임 날짜
               </label>
@@ -397,7 +397,7 @@ export default function EditPartyPage() {
                   (e.currentTarget as HTMLInputElement).showPicker()
                 }
                 min={new Date().toISOString().split("T")[0]}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-black cursor-pointer"
+                className="w-full px-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:border-[#FFB130] cursor-pointer bg-gray-700 text-white"
                 required
               />
             </div>
@@ -406,7 +406,7 @@ export default function EditPartyPage() {
             <div>
               <label
                 htmlFor="time"
-                className="block text-sm font-medium text-gray-700 mb-1"
+                className="block text-sm font-medium text-gray-300 mb-1"
               >
                 모임 시간
               </label>
@@ -418,12 +418,12 @@ export default function EditPartyPage() {
                   value={formData.time}
                   onClick={() => setIsTimePickerModalOpen(true)}
                   readOnly
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-black cursor-pointer"
+                  className="w-full px-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:border-[#FFB130] cursor-pointer bg-gray-700 text-white"
                   placeholder="시간을 선택해주세요"
                   required
                 />
                 <div
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 cursor-pointer"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 cursor-pointer"
                   onClick={() => setIsTimePickerModalOpen(true)}
                 >
                   <svg
@@ -449,7 +449,7 @@ export default function EditPartyPage() {
             <div>
               <label
                 htmlFor="participantsNeeded"
-                className="block text-sm font-medium text-gray-700 mb-1"
+                className="block text-sm font-medium text-gray-300 mb-1"
               >
                 필요한 인원
               </label>
@@ -460,7 +460,7 @@ export default function EditPartyPage() {
                 value={formData.participantsNeeded}
                 onChange={handleInputChange}
                 min="1"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
+                className="w-full px-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:border-[#FFB130] bg-gray-700 text-white"
                 required
               />
             </div>
@@ -469,7 +469,7 @@ export default function EditPartyPage() {
             <div>
               <label
                 htmlFor="totalParticipants"
-                className="block text-sm font-medium text-gray-700 mb-1"
+                className="block text-sm font-medium text-gray-300 mb-1"
               >
                 모임 총 인원 (모임장 포함)
               </label>
@@ -480,7 +480,7 @@ export default function EditPartyPage() {
                 value={formData.totalParticipants}
                 onChange={handleInputChange}
                 min="1"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
+                className="w-full px-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:border-[#FFB130] bg-gray-700 text-white"
                 required
               />
             </div>
@@ -506,7 +506,7 @@ export default function EditPartyPage() {
                   className={`w-5 h-5 border rounded flex items-center justify-center cursor-pointer ${
                     formData.rookieAvailable
                       ? "bg-[#FFB130] border-[#FFB130]"
-                      : "bg-white border-gray-300"
+                      : "bg-gray-700 border-gray-600"
                   }`}
                 >
                   {formData.rookieAvailable && (
@@ -533,7 +533,7 @@ export default function EditPartyPage() {
                   }));
                 }}
                 htmlFor="rookieAvailable"
-                className="ml-2 block text-sm text-gray-700 cursor-pointer"
+                className="ml-2 block text-sm text-gray-300 cursor-pointer"
               >
                 초심자 가능 여부
               </label>
@@ -543,7 +543,7 @@ export default function EditPartyPage() {
             <div>
               <label
                 htmlFor="content"
-                className="block text-sm font-medium text-gray-700 mb-1"
+                className="block text-sm font-medium text-gray-300 mb-1"
               >
                 모임 소개글
               </label>
@@ -553,7 +553,7 @@ export default function EditPartyPage() {
                 value={formData.content}
                 onChange={handleInputChange}
                 rows={4}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
+                className="w-full px-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:border-[#FFB130] bg-gray-700 text-white"
                 placeholder="모임에 대한 소개글을 작성해주세요"
                 required
               />
@@ -563,7 +563,7 @@ export default function EditPartyPage() {
             <div className="flex gap-3 mt-8">
               <Link
                 href={`/parties/${partyId}`}
-                className="flex-1 px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 text-center"
+                className="flex-1 px-6 py-3 border border-gray-600 rounded-lg hover:bg-gray-700 text-center text-gray-300"
               >
                 취소
               </Link>

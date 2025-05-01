@@ -21,8 +21,10 @@ interface PartyMainResponse {
   partyId?: number;
   title?: string;
   scheduledAt?: string;
-  acceptedParticipantCount?: number;
+  acceptedParticipantsCount?: number;
   totalParticipants?: number;
+  hostNickname?: string;
+  hostProfilePictureUrl?: string;
 }
 
 interface SearchCondition {
@@ -62,8 +64,24 @@ export default function PartiesPage() {
   // URL 파라미터에서 테마 정보를 읽어와서 초기 검색어 설정
   useEffect(() => {
     const themeName = searchParams.get('themeName');
+    const themeId = searchParams.get('themeId');
+
     if (themeName) {
       setSearchKeyword(themeName);
+    }
+
+    if (themeId) {
+      // themeId가 있는 경우 해당 테마로 필터링된 검색 조건 생성
+      const searchCondition: SearchCondition = {
+        keyword: themeName || "",
+        regionIds: [],
+        dates: [],
+        tagsIds: [parseInt(themeId)]
+      };
+      loadParties(true, searchCondition);
+    } else if (!initialLoading) {
+      // themeId가 없는 경우에만 일반 검색 조건으로 로드
+      loadParties(true);
     }
   }, [searchParams]);
 
@@ -71,7 +89,7 @@ export default function PartiesPage() {
   const lastPartyElementRef = useCallback((node: HTMLDivElement) => {
     if (loading) return;
     if (observer.current) observer.current.disconnect();
-    
+
     observer.current = new IntersectionObserver(entries => {
       if (entries[0].isIntersecting && hasMore) {
         loadParties(false);
@@ -102,8 +120,6 @@ export default function PartiesPage() {
         tagsIds: filterGenres.length > 0 ? filterGenres.map(id => parseInt(id)) : []
       };
 
-      console.log("API 요청 검색 조건:", searchCondition);
-
       const response = await client.POST("/api/v1/parties/search", {
         params: {
           query: {
@@ -117,13 +133,13 @@ export default function PartiesPage() {
       if (response?.data?.data) {
         const newParties = response.data.data.content || [];
         const hasNext = response.data.data.hasNext || false;
-        
+
         if (newParties.length === 0 || (newParties[0]?.partyId === lastId)) {
           setHasMore(false);
         } else {
           setHasMore(hasNext);
         }
-        
+
         setParties(prev => reset ? newParties : [...prev, ...newParties]);
       }
     } catch (error) {
@@ -137,12 +153,14 @@ export default function PartiesPage() {
 
   // 초기 데이터 로드
   useEffect(() => {
-    loadParties(true);
+    if (!searchParams.get('themeId')) {
+      loadParties(true);
+    }
   }, []);
 
   // 필터 상태가 변경될 때마다 API 요청
   useEffect(() => {
-    if (!initialLoading) {
+    if (!initialLoading && !searchParams.get('themeId')) {
       loadParties(true);
     }
   }, [searchKeyword, filterRegions, filterGenres, filterDates]);
@@ -169,8 +187,6 @@ export default function PartiesPage() {
 
   // 필터 적용 처리
   const handleFilterApply = (filters: any) => {
-    console.log("페이지에서 받은 필터 값:", filters);
-    
     // 지역 필터 처리
     const newRegions = filters.regions || [];
     const newSubRegions = filters.subRegions || [];
@@ -194,20 +210,17 @@ export default function PartiesPage() {
       setFilterGenreNames(newGenreNames),
       setFilterDates(newDates)
     ]).then(() => {
-      console.log("새로운 검색 조건:", newSearchCondition);
       loadParties(true, newSearchCondition);
     });
   };
 
   // 카드 클릭 처리
   const handleCardClick = (party: PartyMainResponse) => {
-    console.log("이동할 모임:", party);
     if (party && (party.id || party.partyId)) {
       // id 또는 partyId 중 존재하는 값 사용
       const partyId = party.id || party.partyId;
       router.push(`/parties/${partyId}`);
     } else {
-      console.error("모임의 ID가 없습니다", party);
     }
   };
 
@@ -263,13 +276,12 @@ export default function PartiesPage() {
         ? new Date(party.scheduledAt).toLocaleDateString()
         : "날짜 정보 없음",
       location: party.storeName || "위치 정보 없음",
-      participants: `${party.acceptedParticipantCount || 0}/${
-        party.totalParticipants || 0
-      }`,
+      participants: `${party.acceptedParticipantsCount || 0}/${party.totalParticipants || 0
+        }`,
       tags: party.themeName ? [party.themeName] : ["테마 정보 없음"],
       host: {
-        name: "모임장",
-        image: "/profile_man.jpg",
+        name: party.hostNickname || "모임장",
+        image: party.hostProfilePictureUrl || "/profile_man.jpg",
       },
     };
 
@@ -292,7 +304,7 @@ export default function PartiesPage() {
     setFilterGenres([]);
     setFilterGenreNames([]);
     setFilterDates([]);
-    
+
     // 모든 필터가 초기화된 상태로 API 요청
     const emptySearchCondition: SearchCondition = {
       keyword: "",
@@ -369,7 +381,7 @@ export default function PartiesPage() {
               genreNames: filterGenreNames
             }}
           />
-          
+
           {/* 활성화된 필터 표시 */}
           <div className="flex flex-wrap gap-2">
             {searchKeyword && (

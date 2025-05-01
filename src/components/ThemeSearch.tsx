@@ -4,7 +4,6 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ThemeFilterModal } from "./ThemeFilterModal";
-import { PartiesFilterModal } from "./PartiesFilterModal";
 
 interface FilterValues {
   regions: string[];      // 지역 ID 배열
@@ -32,12 +31,10 @@ export function ThemeSearch({
   onSearch,
   onFilterApply,
   onFilterChange,
-  filterType = 'theme',
   searchTerm,
   onSearchTermChange,
   isFilterModalOpen,
   onFilterModalOpenChange,
-  currentFilters,
 }: ThemeSearchProps) {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

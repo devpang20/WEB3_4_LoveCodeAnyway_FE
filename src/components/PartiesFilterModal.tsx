@@ -8,18 +8,9 @@ interface Tag {
   name: string;
 }
 
-interface SubRegionsResponse {
-  id: number;
-  subRegion: string;
-}
-
 interface Region {
   id: number;
   subRegion: string;
-}
-
-interface ApiResponse<T> {
-  data: T;
 }
 
 interface FilterValues {
