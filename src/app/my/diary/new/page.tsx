@@ -79,7 +79,7 @@ export default function NewDiaryPage() {
   const [escapeImages, setEscapeImages] = useState<string[]>([]);
   const [newEscapeImage, setNewEscapeImage] = useState("");
   const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
   // 평가 관련 상태
   const [ratings, setRatings] = useState({
@@ -94,16 +94,14 @@ export default function NewDiaryPage() {
   });
 
   // 장치 관련 상태
-  const [deviceRatio, setDeviceRatio] = useState(50);
+  const [deviceRatio, setDeviceRatio] = useState(0);
   const [noDevice, setNoDevice] = useState(false);
 
   // 탈출 정보 관련 상태
   const [hintCount, setHintCount] = useState<number | null>(null);
-  const [isSuccess, setIsSuccess] = useState<boolean | null>(null);
-  const [timeType, setTimeType] = useState<"진행 시간" | "잔여 시간">(
-    "진행 시간"
-  );
-  const [time, setTime] = useState("");
+  const [isSuccess, setIsSuccess] = useState<boolean>(true);
+  const [timeType, setTimeType] = useState<"진행 시간" | "잔여 시간">("진행 시간");
+  const [time, setTime] = useState("00:00");
 
   // 소감 관련 상태
   const [comment, setComment] = useState("");
@@ -200,40 +198,33 @@ export default function NewDiaryPage() {
     }
   };
 
-  // 이미지 업로드 API 호출
-  const uploadImages = async () => {
-    if (uploadedFiles.length === 0) return [];
-
-    try {
-      setIsUploadingImage(true);
-      const formData = new FormData();
-
-      uploadedFiles.forEach((file) => {
-        formData.append("files", file);
-      });
-
-      const response = await client.post(
-        `/api/v1/images/upload`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-          withCredentials: true,
-        }
-      );
-
-      if (response.status === 200) {
-        return response.data.data; // 업로드된 이미지 URL 배열 반환
+  // 이미지 관련 핸들러
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      
+      // 파일 확장자 검사
+      const validExtensions = ['jpg', 'jpeg'];
+      const fileExtension = file.name.split('.').pop()?.toLowerCase();
+      
+      if (!fileExtension || !validExtensions.includes(fileExtension)) {
+        alert('JPG 또는 JPEG 파일만 업로드 가능합니다.');
+        return;
       }
-      return [];
-    } catch (error) {
-      console.error("Error uploading images:", error);
-      alert("이미지 업로드에 실패했습니다.");
-      return [];
-    } finally {
-      setIsUploadingImage(false);
+
+      // 파일 크기 검사 (10MB = 10 * 1024 * 1024 bytes)
+      const maxSize = 10 * 1024 * 1024;
+      if (file.size > maxSize) {
+        alert('파일 크기는 10MB를 초과할 수 없습니다.');
+        return;
+      }
+
+      setUploadedFile(file);
     }
+  };
+
+  const removeUploadedFile = () => {
+    setUploadedFile(null);
   };
 
   // 탈출일지 등록 API 호출
@@ -246,18 +237,11 @@ export default function NewDiaryPage() {
       return;
     }
 
-    if (!date) {
-      alert("진행 날짜를 입력해주세요.");
-      return;
-    }
-
-    if (!time) {
-      alert("시간을 입력해주세요.");
-      return;
-    }
+    // 시간이 없을 경우 "00:00"으로 설정
+    const submitTime = time || "00:00";
 
     // 시간 형식 검증
-    if (!/^\d{1,3}:\d{1,2}$/.test(time)) {
+    if (!/^\d{1,3}:\d{1,2}$/.test(submitTime)) {
       alert("시간을 '분:초' 형식으로 입력해주세요 (예: 30:00)");
       return;
     }
@@ -268,19 +252,19 @@ export default function NewDiaryPage() {
         themeId: parseInt(selectedTheme.id),
         escapeDate: date,
         participants: participants,
-        difficulty: ratings.difficulty,
-        fear: ratings.horror,
-        activity: ratings.activity,
-        satisfaction: ratings.satisfaction,
-        production: ratings.production,
-        story: ratings.story,
-        question: ratings.composition,
-        interior: ratings.interior,
+        difficulty: ratings.difficulty || 0,
+        fear: ratings.horror || 0,
+        activity: ratings.activity || 0,
+        satisfaction: ratings.satisfaction || 0,
+        production: ratings.production || 0,
+        story: ratings.story || 0,
+        question: ratings.composition || 0,
+        interior: ratings.interior || 0,
         deviceRatio: noDevice ? 0 : deviceRatio,
-        hintCount: hintCount,
+        hintCount: hintCount || 0,
         escapeResult: isSuccess,
         timeType: timeType === "진행 시간" ? "ELAPSED" : "REMAINING",
-        elapsedTime: time,
+        elapsedTime: submitTime,
         review: comment,
       };
 
@@ -292,6 +276,21 @@ export default function NewDiaryPage() {
         },
       });
 
+      if (diaryResponse.data?.errorCode) {
+        // 특정 에러 코드에 따른 처리
+        switch (diaryResponse.data.errorCode) {
+          case "DIARY_008":
+            alert("이미 등록된 테마입니다.");
+            return;
+          case "DIARY_003":
+            alert("남은 시간은 테마 시간보다 작아야합니다.");
+            return;
+          default:
+            alert(diaryResponse.data.message || "일지 등록에 실패했습니다.");
+            return;
+        }
+      }
+
       if (!diaryResponse.data?.data?.id) {
         throw new Error("일지 등록에 실패했습니다.");
       }
@@ -299,32 +298,39 @@ export default function NewDiaryPage() {
       const diaryId = diaryResponse.data.data.id;
 
       // 2. 이미지가 있는 경우 업로드
-      if (uploadedFiles.length > 0) {
-        for (const file of uploadedFiles) {
-          const formData = new FormData();
-          formData.append("file", file);
-          formData.append("target", "DIARY");
+      if (uploadedFile) {
+        const formData = new FormData();
+        formData.append("file", uploadedFile);
+        formData.append("target", "DIARY");
 
-          await client.post(`/api/v1/upload/image/${diaryId}`, formData, {
-            withCredentials: true,
-            headers: {
-              "Content-Type": "multipart/form-data",
-              Accept: "application/json",
-            },
-          });
-        }
-      }
-
-      // 3. 수동으로 입력된 이미지 URL이 있는 경우 처리
-      if (escapeImages.length > 0) {
-        // TODO: 수동 입력된 이미지 URL 처리 로직 추가
+        await client.post(`/api/v1/upload/image/${diaryId}`, formData, {
+          withCredentials: true,
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Accept: "application/json",
+          },
+        });
       }
 
       alert("탈출일지가 성공적으로 등록되었습니다.");
       router.push("/my/diary");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Form submission error:", error);
-      alert("탈출일지 등록에 실패했습니다. 다시 시도해주세요.");
+      // 에러 응답 구조 확인
+      if (error.response?.data?.errorCode) {
+        switch (error.response.data.errorCode) {
+          case "DIARY_008":
+            alert("이미 등록된 테마입니다.");
+            break;
+          case "DIARY_003":
+            alert("남은 시간은 테마 시간보다 작아야합니다.");
+            break;
+          default:
+            alert(error.response.data.message || "탈출일지 등록에 실패했습니다.");
+        }
+      } else {
+        alert("탈출일지 등록에 실패했습니다. 다시 시도해주세요.");
+      }
     }
   };
 
@@ -360,13 +366,6 @@ export default function NewDiaryPage() {
   };
 
   // 이미지 관련 핸들러
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const files = Array.from(e.target.files);
-      setUploadedFiles((prev) => [...prev, ...files]);
-    }
-  };
-
   const addEscapeImage = () => {
     if (newEscapeImage.trim()) {
       setEscapeImages((prev) => [...prev, newEscapeImage]);
@@ -376,10 +375,6 @@ export default function NewDiaryPage() {
 
   const removeEscapeImage = (index: number) => {
     setEscapeImages((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const removeUploadedFile = (index: number) => {
-    setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   // 새 테마 등록 핸들러
@@ -460,7 +455,6 @@ export default function NewDiaryPage() {
                   <input
                     type="file"
                     ref={fileInputRef}
-                    multiple
                     accept="image/*"
                     className="hidden"
                     onChange={handleFileSelect}
@@ -486,45 +480,24 @@ export default function NewDiaryPage() {
                 </div>
 
                 {/* 선택된 파일 목록 표시 */}
-                {uploadedFiles.length > 0 && (
-                  <div className="grid grid-cols-2 gap-2 mt-2 mb-4">
-                    {uploadedFiles.map((file, index) => (
-                      <div key={`file-${index}`} className="relative">
-                        <div className="bg-gray-700 h-24 rounded-lg flex items-center justify-center overflow-hidden">
-                          <img
-                            src={URL.createObjectURL(file)}
-                            alt={`Preview ${index}`}
-                            className="h-full object-cover"
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeUploadedFile(index)}
-                          className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
+                {uploadedFile && (
+                  <div className="relative mt-2 mb-4">
+                    <div className="bg-gray-700 h-24 rounded-lg flex items-center justify-center overflow-hidden">
+                      <img
+                        src={URL.createObjectURL(uploadedFile)}
+                        alt="Preview"
+                        className="h-full object-cover"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={removeUploadedFile}
+                      className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs"
+                    >
+                      ×
+                    </button>
                   </div>
                 )}
-
-                <div className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={newEscapeImage}
-                    onChange={(e) => setNewEscapeImage(e.target.value)}
-                    placeholder="이미지 URL 입력"
-                    className="flex-1 px-3 py-2 border border-gray-700 rounded-lg bg-gray-700 text-white"
-                  />
-                  <button
-                    type="button"
-                    onClick={addEscapeImage}
-                    className="px-4 py-2 bg-gray-600 rounded-lg text-sm text-white"
-                  >
-                    추가
-                  </button>
-                </div>
 
                 {escapeImages.length > 0 && (
                   <div className="grid grid-cols-2 gap-2 mt-2">
@@ -580,14 +553,14 @@ export default function NewDiaryPage() {
             <div className="grid grid-cols-2 gap-6">
               {/* 평가 항목들 */}
               {[
-                { id: "interior", label: "인테리어", color: "yellow" },
-                { id: "composition", label: "문제 구성", color: "yellow" },
-                { id: "story", label: "스토리", color: "yellow" },
-                { id: "production", label: "연출", color: "yellow" },
-                { id: "satisfaction", label: "만족도", color: "yellow" },
-                { id: "difficulty", label: "난이도", color: "blue" },
-                { id: "horror", label: "공포도", color: "purple" },
-                { id: "activity", label: "활동성", color: "green" },
+                { id: "interior", label: "인테리어", color: "#FCD34D" },
+                { id: "composition", label: "문제 구성", color: "#FCD34D" },
+                { id: "story", label: "스토리", color: "#FCD34D" },
+                { id: "production", label: "연출", color: "#FCD34D" },
+                { id: "satisfaction", label: "만족도", color: "#FCD34D" },
+                { id: "difficulty", label: "난이도", color: "#3B82F6" },
+                { id: "horror", label: "공포도", color: "#EF4444" },
+                { id: "activity", label: "활동성", color: "#10B981" },
               ].map((item) => (
                 <div key={item.id}>
                   <h3 className="text-md font-medium mb-2 text-white">{item.label}</h3>
@@ -599,13 +572,13 @@ export default function NewDiaryPage() {
                         onClick={() =>
                           handleRatingChange(item.id as RatingCategory, star)
                         }
-                        className={`w-6 h-6 ${
-                          star <= ratings[item.id as RatingCategory]
-                            ? `text-${item.color}-${
-                                item.color === "yellow" ? "400" : "500"
-                              }`
-                            : "text-gray-500"
-                        }`}
+                        style={{
+                          width: '1.5rem',
+                          height: '1.5rem',
+                          color: star <= ratings[item.id as RatingCategory]
+                            ? item.color
+                            : '#6B7280'
+                        }}
                       >
                         <svg fill="currentColor" viewBox="0 0 20 20">
                           <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z" />
@@ -641,7 +614,7 @@ export default function NewDiaryPage() {
                     className="w-full"
                   />
                 </div>
-                <div className="flex justify-between text-xs">
+                <div className="flex justify-between text-xs text-white">
                   <span>자물쇠</span>
                   <span>{deviceRatio}%</span>
                   <span>전자장치</span>
@@ -654,9 +627,97 @@ export default function NewDiaryPage() {
           <section className="bg-gray-800 rounded-lg shadow-sm p-6">
             <h2 className="text-lg font-semibold mb-4 text-white">탈출 정보</h2>
 
-            <div className="grid grid-cols-2 gap-6">
+            <div className="flex items-start gap-4">
+              
+
+              {/* 탈출 여부 */}
+              <div className="w-1/3">
+                <h3 className="text-md font-medium mb-2 text-white">탈출 여부</h3>
+                <div className="flex flex-col gap-2">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="escapeSuccess"
+                      checked={isSuccess === true}
+                      onChange={() => setIsSuccess(true)}
+                      className="mr-2"
+                    />
+                    <span className="text-white">탈출 성공</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="escapeSuccess"
+                      checked={isSuccess === false}
+                      onChange={() => setIsSuccess(false)}
+                      className="mr-2"
+                    />
+                    <span className="text-white">탈출 실패</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* 시간 */}
+              <div className="w-3/5">
+                <h3 className="text-md font-medium mb-2 text-white">시간</h3>
+                <div className="flex gap-4">
+                  <div className="flex flex-col gap-2">
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="timeType"
+                        checked={timeType === "진행 시간"}
+                        onChange={() => setTimeType("진행 시간")}
+                        className="mr-2"
+                      />
+                      <span className="text-white">진행 시간</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="timeType"
+                        checked={timeType === "잔여 시간"}
+                        onChange={() => setTimeType("잔여 시간")}
+                        className="mr-2"
+                      />
+                      <span className="text-white">잔여 시간</span>
+                    </label>
+                  </div>
+                  <div className="flex-1 flex items-center gap-1">
+                    <input
+                      type="text"
+                      value={time.split(":")[0]}
+                      onChange={(e) => {
+                        const min = e.target.value;
+                        if (/^\d{0,2}$/.test(min)) {
+                          setTime(`${min}:${time.split(":")[1] || "00"}`);
+                        }
+                      }}
+                      placeholder="00"
+                      className="w-12 px-2 py-2 text-center border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
+                      maxLength={2}
+                    />
+                    <span className="text-white">분</span>
+                    <input
+                      type="text"
+                      value={time.split(":")[1]}
+                      onChange={(e) => {
+                        const sec = e.target.value;
+                        if (/^\d{0,2}$/.test(sec)) {
+                          setTime(`${time.split(":")[0] || "00"}:${sec}`);
+                        }
+                      }}
+                      placeholder="00"
+                      className="w-12 px-2 py-2 text-center border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
+                      maxLength={2}
+                    />
+                    <span className="text-white">초</span>
+                  </div>
+                </div>
+              </div>
+
               {/* 힌트 사용 횟수 */}
-              <div>
+              <div className="w-1/3">
                 <h3 className="text-md font-medium mb-2 text-white">힌트 사용 횟수</h3>
                 <input
                   type="number"
@@ -670,80 +731,6 @@ export default function NewDiaryPage() {
                   placeholder="횟수 입력"
                   className="w-full px-4 py-2 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
                 />
-              </div>
-
-              {/* 탈출 여부 */}
-              <div>
-                <h3 className="text-md font-medium mb-2 text-white">탈출 여부</h3>
-                <div className="flex gap-4">
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="escapeSuccess"
-                      checked={isSuccess === true}
-                      onChange={() => setIsSuccess(true)}
-                      className="mr-2"
-                    />
-                    <span>성공</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="escapeSuccess"
-                      checked={isSuccess === false}
-                      onChange={() => setIsSuccess(false)}
-                      className="mr-2"
-                    />
-                    <span>실패</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* 시간 */}
-              <div className="col-span-2">
-                <h3 className="text-md font-medium mb-2 text-white">시간</h3>
-                <div className="flex items-center gap-4">
-                  <div className="flex-1">
-                    <div className="flex mb-2">
-                      <label className="flex items-center mr-4">
-                        <input
-                          type="radio"
-                          name="timeType"
-                          checked={timeType === "진행 시간"}
-                          onChange={() => setTimeType("진행 시간")}
-                          className="mr-2"
-                        />
-                        <span>진행 시간</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name="timeType"
-                          checked={timeType === "잔여 시간"}
-                          onChange={() => setTimeType("잔여 시간")}
-                          className="mr-2"
-                        />
-                        <span>잔여 시간</span>
-                      </label>
-                    </div>
-                    <input
-                      type="text"
-                      value={time}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        // 숫자와 콜론만 허용
-                        if (/^\d*:?\d*$/.test(value)) {
-                          setTime(value);
-                        }
-                      }}
-                      placeholder="분:초 (예: 30:00)"
-                      className="w-full px-4 py-2 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
-                    />
-                    <p className="text-xs text-gray-400 mt-1">
-                      * 분:초 형식으로 입력해주세요 (예: 30:00)
-                    </p>
-                  </div>
-                </div>
               </div>
             </div>
           </section>
@@ -775,6 +762,10 @@ export default function NewDiaryPage() {
         isOpen={isThemeModalOpen}
         onClose={() => setIsThemeModalOpen(false)}
         onSelect={handleThemeSelect}
+        searchTerm={searchKeyword}
+        onSearchTermChange={setSearchKeyword}
+        loading={isLoadingThemes}
+        onLoadingChange={setIsLoadingThemes}
       />
 
       <NewThemesModal
