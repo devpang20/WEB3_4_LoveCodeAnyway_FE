@@ -33,7 +33,8 @@ export function TimePickerModal({
           setHour(hours === 0 ? 12 : hours);
           setPeriod("AM");
         }
-        setMinute(minutes);
+        // 5분 단위로 반올림
+        setMinute(Math.round(minutes / 5) * 5);
       }
     } else {
       // 현재 시간으로 설정
@@ -41,7 +42,8 @@ export function TimePickerModal({
       const currentHour = now.getHours();
       setHour(currentHour % 12 === 0 ? 12 : currentHour % 12);
       setPeriod(currentHour >= 12 ? "PM" : "AM");
-      setMinute(now.getMinutes());
+      // 5분 단위로 반올림
+      setMinute(Math.round(now.getMinutes() / 5) * 5);
     }
   }, [isOpen, initialTime]);
 

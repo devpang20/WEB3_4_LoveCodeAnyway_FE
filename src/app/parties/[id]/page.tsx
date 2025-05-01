@@ -280,6 +280,48 @@ export default function PartyDetailPage() {
     }
   };
 
+  // 모임 실행 완료 처리
+  const handleExecuteParty = async () => {
+    if (!partyId) return;
+
+    try {
+      await client.PATCH(`/api/v1/parties/{partyId}/executed`, {
+        params: {
+          path: {
+            partyId: partyId,
+          },
+        },
+        withCredentials: true,
+      });
+      alert("모임이 실행 완료 상태로 변경되었습니다.");
+      window.location.reload();
+    } catch (error) {
+      console.error("모임 실행 완료 처리 중 오류:", error);
+      alert("모임 실행 완료 처리 중 오류가 발생했습니다.");
+    }
+  };
+
+  // 모임 미실행 처리
+  const handleUnexecuteParty = async () => {
+    if (!partyId) return;
+
+    try {
+      await client.PATCH(`/api/v1/parties/{partyId}/unexecuted`, {
+        params: {
+          path: {
+            partyId: partyId,
+          },
+        },
+        withCredentials: true,
+      });
+      alert("모임이 미실행 상태로 변경되었습니다.");
+      window.location.reload();
+    } catch (error) {
+      console.error("모임 미실행 처리 중 오류:", error);
+      alert("모임 미실행 처리 중 오류가 발생했습니다.");
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -734,6 +776,18 @@ export default function PartyDetailPage() {
           {/* 모임장(글쓴이)인 경우 */}
           {userRole === "host" && (
             <>
+              <button
+                onClick={handleExecuteParty}
+                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+              >
+                모임 실행 완료
+              </button>
+              <button
+                onClick={handleUnexecuteParty}
+                className="px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition"
+              >
+                모임 미실행
+              </button>
               <Link
                 href={`/parties/edit/${partyId}`}
                 className="px-6 py-3 bg-[#FFB130] text-white rounded-lg hover:bg-[#F0A420] transition"

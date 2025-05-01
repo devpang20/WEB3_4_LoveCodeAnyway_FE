@@ -66,8 +66,9 @@ export default function CreatePartyPage() {
     time: (() => {
       // 현재 시간 포맷팅 (HH:MM)
       const now = new Date();
+      const minutes = Math.round(now.getMinutes() / 5) * 5;
       return `${String(now.getHours()).padStart(2, "0")}:${String(
-        now.getMinutes()
+        minutes
       ).padStart(2, "0")}`;
     })(),
     participantsNeeded: "",
