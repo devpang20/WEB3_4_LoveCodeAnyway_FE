@@ -7,11 +7,11 @@ import { ThemeFilterModal } from "./ThemeFilterModal";
 import { PartiesFilterModal } from "./PartiesFilterModal";
 
 interface FilterValues {
-  regions: string[];
-  genres: number[];
-  dates: string[];
-  subRegions: string[];
-  genreNames: string[];
+  regions: string[];      // 지역 ID 배열
+  genres: number[];       // 장르 ID 배열
+  participant: string;    // 참여 인원
+  subRegions: string[];  // 지역 이름 배열 (표시용)
+  genreNames: string[];  // 장르 이름 배열 (표시용)
 }
 
 interface ThemeSearchProps {
@@ -123,19 +123,13 @@ export function ThemeSearch({
         </div>
       </div>
 
-      {filterType === 'theme' ? (
+
         <ThemeFilterModal
           isOpen={isFilterModalOpen}
           onClose={() => onFilterModalOpenChange(false)}
           onApply={handleFilterApply}
         />
-      ) : (
-        <PartiesFilterModal
-          isOpen={isFilterModalOpen}
-          onClose={() => onFilterModalOpenChange(false)}
-          onApply={handleFilterApply}
-        />
-      )}
+    
     </div>
   );
 }

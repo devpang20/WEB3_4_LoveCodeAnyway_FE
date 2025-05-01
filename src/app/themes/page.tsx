@@ -115,15 +115,25 @@ export default function ThemesPage() {
 
   // 필터 초기화 함수
   const resetAllFilters = async () => {
+    console.log("=== 필터 초기화 시작 ===");
     setSearchKeyword("");
     const newFilters = {
       regionId: [],
       tagIds: [],
       participants: "",
     };
+    console.log("초기화할 새 필터:", newFilters);
     setSelectedFilters(newFilters);
     setFilterSubRegions([]);
     setFilterGenreNames([]);
+
+    console.log("ThemeSearch에 전달되는 currentFilters:", {
+      regions: [],
+      genres: [],
+      participant: "",
+      subRegions: [],
+      genreNames: []
+    });
 
     // 초기화된 필터로 API 호출
     const response = await client.POST("/api/v1/themes", {
@@ -140,8 +150,15 @@ export default function ThemesPage() {
         participants: undefined,
       },
     });
+    console.log("API 요청 body:", {
+      regionId: [],
+      tagIds: [],
+      keyword: "",
+      participants: undefined,
+    });
 
     if (response?.data?.data) {
+      console.log("API 응답:", response.data.data);
       const apiThemes = response.data.data.content || [];
       const hasNext = response.data.data.hasNext || false;
 
@@ -159,6 +176,7 @@ export default function ThemesPage() {
         rating: "80",
       })));
     }
+    console.log("=== 필터 초기화 완료 ===");
   };
 
   // 특정 필터 제거 함수
@@ -183,7 +201,41 @@ export default function ThemesPage() {
     }
 
     setSelectedFilters(newFilters);
-    loadMoreThemes(true);
+
+    // 변경된 필터로 API 호출
+    client.POST("/api/v1/themes", {
+      params: {
+        query: {
+          page: 0,
+          size: ITEMS_PER_PAGE,
+        },
+      },
+      body: {
+        regionId: newFilters.regionId,
+        tagIds: newFilters.tagIds,
+        keyword: filterType === 'keyword' ? "" : searchKeyword,
+        participants: newFilters.participants ? parseInt(newFilters.participants) : undefined,
+      },
+    }).then(response => {
+      if (response?.data?.data) {
+        const apiThemes = response.data.data.content || [];
+        const hasNext = response.data.data.hasNext || false;
+
+        setHasMore(hasNext);
+        setThemes(apiThemes.map((theme: any) => ({
+          id: theme.id?.toString(),
+          title: theme.name || "",
+          category: theme.storeName || "",
+          date: "오늘",
+          location: theme.storeName?.split(" ")[0] || "",
+          participants: theme.recommendedParticipants || "2-4인",
+          subInfo: theme.runtime ? `${theme.runtime}분` : "",
+          tags: theme.tags || [],
+          image: theme.thumbnailUrl || "/images/mystery-room.jpg",
+          rating: "80",
+        })));
+      }
+    });
   };
 
   const handleFilterApply = async (filters: any) => {
@@ -284,6 +336,13 @@ export default function ThemesPage() {
           isFilterModalOpen={filterModalOpen}
           onFilterModalOpenChange={setFilterModalOpen}
           filterType="theme"
+          currentFilters={{
+            regions: selectedFilters.regionId.map(id => id.toString()),
+            genres: selectedFilters.tagIds,
+            participant: selectedFilters.participants,
+            subRegions: filterSubRegions,
+            genreNames: filterGenreNames
+          }}
         />
 
         {/* 활성화된 필터 표시 */}

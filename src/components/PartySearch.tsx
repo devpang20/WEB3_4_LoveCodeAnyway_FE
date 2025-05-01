@@ -3,21 +3,39 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { PartiesFilterModal } from "./PartiesFilterModal";
+
+interface FilterValues {
+  regions: string[];
+  genres: number[];
+  dates: string[];
+  subRegions: string[];
+  genreNames: string[];
+}
 
 interface PartySearchProps {
   showCreateButton?: boolean;
   onSearch?: (keyword: string) => void;
-  onFilterApply?: (filters: any) => void;
+  onFilterApply?: (filters: FilterValues) => void;
+  onFilterChange?: (filterType: string, value: string) => void;
+  searchTerm: string;
+  onSearchTermChange: (term: string) => void;
+  isFilterModalOpen: boolean;
+  onFilterModalOpenChange: (isOpen: boolean) => void;
+  currentFilters?: FilterValues;
 }
 
 export function PartySearch({
   showCreateButton = false,
   onSearch,
   onFilterApply,
+  onFilterChange,
+  searchTerm,
+  onSearchTermChange,
+  isFilterModalOpen,
+  onFilterModalOpenChange,
+  currentFilters,
 }: PartySearchProps) {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (onSearch) {
@@ -25,11 +43,17 @@ export function PartySearch({
     }
   };
 
-  const handleFilterApply = (filters: any) => {
+  const handleFilterApply = (filters: FilterValues) => {
     if (onFilterApply) {
       onFilterApply(filters);
     }
-    setIsFilterModalOpen(false);
+
+    // 이전 버전과의 호환성을 위해 onFilterChange도 호출
+    if (onFilterChange && filters.regions && filters.regions.length > 0) {
+      onFilterChange("region", filters.regions[0]);
+    }
+
+    onFilterModalOpenChange(false);
   };
 
   return (
@@ -49,16 +73,16 @@ export function PartySearch({
             <input
               type="text"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="모임명으로 검색"
-              className="w-full pl-9 pr-4 py-2.5 border border-black rounded-lg focus:outline-none focus:border-black placeholder:text-gray-400"
+              onChange={(e) => onSearchTermChange(e.target.value)}
+              placeholder="테마 이름으로 검색"
+              className="w-full pl-9 pr-4 py-2.5 h-10 border border-gray-700 rounded-lg focus:outline-none focus:border-gray-700 placeholder:text-gray-400 text-white bg-gray-800"
             />
           </form>
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => setIsFilterModalOpen(true)}
-            className="px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 flex items-center gap-1.5"
+            onClick={() => onFilterModalOpenChange(true)}
+            className="px-4 h-10 bg-black text-white text-sm rounded-lg hover:bg-gray-800 flex items-center gap-1.5"
           >
             <svg
               width="16"
@@ -88,7 +112,7 @@ export function PartySearch({
           {showCreateButton && (
             <Link
               href="/parties/new"
-              className="px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800"
+              className="px-4 h-10 flex items-center bg-black text-white text-sm rounded-lg hover:bg-gray-800"
             >
               모임 등록
             </Link>
@@ -96,34 +120,12 @@ export function PartySearch({
         </div>
       </div>
 
-      {/* 필터 모달 - 추후 구현 */}
-      {isFilterModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full">
-            <h2 className="text-xl font-bold mb-4">검색 필터</h2>
-            <div className="flex justify-end">
-              <button
-                onClick={() => setIsFilterModalOpen(false)}
-                className="px-4 py-2 text-gray-500"
-              >
-                닫기
-              </button>
-              <button
-                onClick={() => {
-                  // Apply filter logic here
-                  setIsFilterModalOpen(false);
-                  if (onFilterApply) {
-                    onFilterApply({});
-                  }
-                }}
-                className="px-4 py-2 bg-black text-white rounded-lg"
-              >
-                적용
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
+        <PartiesFilterModal
+          isOpen={isFilterModalOpen}
+          onClose={() => onFilterModalOpenChange(false)}
+          onApply={handleFilterApply}
+        />
     </div>
   );
 }

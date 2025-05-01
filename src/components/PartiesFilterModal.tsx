@@ -34,15 +34,17 @@ interface ThemeFilterModalProps {
   isOpen: boolean;
   onClose: () => void;
   onApply: (filters: FilterValues) => void;
+  currentFilters?: FilterValues;
 }
 
 export function PartiesFilterModal({
   isOpen,
   onClose,
   onApply,
+  currentFilters
 }: ThemeFilterModalProps) {
-  const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
-  const [selectedGenres, setSelectedGenres] = useState<number[]>([]);
+  const [selectedRegions, setSelectedRegions] = useState<string[]>(currentFilters?.regions || []);
+  const [selectedGenres, setSelectedGenres] = useState<number[]>(currentFilters?.genres || []);
   const [activeRegion, setActiveRegion] = useState("서울");
   const [tags, setTags] = useState<Tag[]>([]);
   const [regions, setRegions] = useState<Region[]>([]);
@@ -64,8 +66,11 @@ export function PartiesFilterModal({
     if (isOpen) {
       fetchTags();
       fetchRegions();
+      setSelectedRegions(currentFilters?.regions || []);
+      setSelectedGenres(currentFilters?.genres || []);
+      setSelectedDates(currentFilters?.dates ? currentFilters.dates.map(date => new Date(date)) : []);
     }
-  }, [isOpen]);
+  }, [isOpen, currentFilters]);
 
   const fetchRegions = async () => {
     setLoadingRegions(true);

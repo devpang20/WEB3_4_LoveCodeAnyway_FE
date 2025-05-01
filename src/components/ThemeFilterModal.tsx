@@ -17,27 +17,29 @@ interface Participant {
 }
 
 interface FilterValues {
-  regions: string[];
-  genres: number[];
-  participant: string;
-  subRegions: string[];
-  genreNames: string[];
+  regions: string[];      // 지역 ID 배열
+  genres: number[];       // 장르 ID 배열
+  participant: string;    // 참여 인원
+  subRegions: string[];  // 지역 이름 배열 (표시용)
+  genreNames: string[];  // 장르 이름 배열 (표시용)
 }
 
 interface ThemeFilterModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onApply: (filters: any) => void;
+  onApply: (filters: FilterValues) => void;
+  currentFilters?: FilterValues;
 }
 
 export function ThemeFilterModal({
   isOpen,
   onClose,
   onApply,
+  currentFilters
 }: ThemeFilterModalProps) {
-  const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
-  const [selectedGenres, setSelectedGenres] = useState<number[]>([]);
-  const [selectedParticipant, setSelectedParticipant] = useState<string>("");
+  const [selectedRegions, setSelectedRegions] = useState<string[]>(currentFilters?.regions || []);
+  const [selectedGenres, setSelectedGenres] = useState<number[]>(currentFilters?.genres || []);
+  const [selectedParticipant, setSelectedParticipant] = useState<string>(currentFilters?.participant || "");
   const [activeRegion, setActiveRegion] = useState("서울");
   const [tags, setTags] = useState<Tag[]>([]);
   const [regions, setRegions] = useState<Region[]>([]);
@@ -66,11 +68,17 @@ export function ThemeFilterModal({
   ];
 
   useEffect(() => {
+    console.log("ThemeFilterModal - isOpen 변경됨:", isOpen);
     if (isOpen) {
       fetchTags();
       fetchRegions();
+      // 모달이 열릴 때 currentFilters 값으로 상태 초기화
+      console.log("ThemeFilterModal - 모달 열림, currentFilters:", currentFilters);
+      setSelectedRegions(currentFilters?.regions || []);
+      setSelectedGenres(currentFilters?.genres || []);
+      setSelectedParticipant(currentFilters?.participant || "");
     }
-  }, [isOpen]);
+  }, [isOpen, currentFilters]);
 
   const fetchRegions = async () => {
     setLoadingRegions(true);
@@ -144,6 +152,7 @@ export function ThemeFilterModal({
   };
 
   const handleReset = () => {
+    console.log("ThemeFilterModal - handleReset 호출");
     setSelectedRegions([]);
     setSelectedGenres([]);
     setSelectedParticipant("");
@@ -151,6 +160,11 @@ export function ThemeFilterModal({
   };
 
   const handleApply = () => {
+    console.log("ThemeFilterModal - handleApply 호출", {
+      selectedRegions,
+      selectedGenres,
+      selectedParticipant
+    });
     const selectedSubRegions = selectedRegions.map(regionId => {
       const region = regions.find(r => r.id === parseInt(regionId));
       return region ? region.subRegion : '';
@@ -265,12 +279,20 @@ export function ThemeFilterModal({
             <div className="bg-gray-800 rounded-2xl p-4 md:p-6 border border-gray-700 h-[480px] overflow-auto">
               <h3 className="text-lg font-medium mb-4 text-center text-white">지역별</h3>
               <div className="flex h-[calc(100%-40px)]">
-                <div className="w-[120px] md:w-[140px] bg-gray-700 rounded-xl p-2 md:p-4 border border-gray-700">
-                  <button
-                    className={`w-full text-left mb-3 text-sm whitespace-nowrap px-2 md:px-3 py-2 rounded-lg transition-colors bg-[#FFB230] text-white`}
-                  >
-                    서울
-                  </button>
+              <div className="w-[120px] md:w-[140px] bg-gray-700 rounded-xl p-2 md:p-4 border border-gray-700">
+                  {majorRegions.map((region) => (
+                    <button
+                      key={region.id}
+                      onClick={() => handleRegionClick(region.id)}
+                      className={`w-full text-left mb-3 text-sm whitespace-nowrap px-2 md:px-3 py-2 rounded-lg transition-colors ${
+                        activeRegion === region.id
+                          ? "bg-[#FFB230] text-white"
+                          : "text-gray-300 hover:bg-gray-600"
+                      }`}
+                    >
+                      {region.name}
+                    </button>
+                  ))}
                 </div>
                 <div className="flex-1 pl-2 md:pl-4">
                   <div className="grid grid-cols-1 gap-2">

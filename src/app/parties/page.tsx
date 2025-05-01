@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useContext, useRef, useCallback } from "react";
 import { PartyCard } from "@/components/PartyCard";
-import { ThemeSearch } from "@/components/ThemeSearch";
+import { PartySearch } from "@/components/PartySearch";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PageLoading } from "@/components/PageLoading";
 import { LoginMemberContext } from "@/stores/auth/loginMember";
 import client from "@/lib/backend/client";
+import { PartiesFilterModal } from "@/components/PartiesFilterModal";
 
 // API에서 받는 모임 데이터 타입
 interface PartyMainResponse {
@@ -180,9 +181,9 @@ export default function PartiesPage() {
     // 새로운 검색 조건 생성
     const newSearchCondition: SearchCondition = {
       keyword: searchKeyword || "",
-      regionIds: newRegions.map(id => parseInt(id)),
+      regionIds: newRegions.map((id: string) => parseInt(id)),
       dates: newDates,
-      tagsIds: newGenres.map(id => parseInt(id))
+      tagsIds: newGenres.map((id: string) => parseInt(id))
     };
 
     // 상태 업데이트와 API 요청
@@ -352,11 +353,10 @@ export default function PartiesPage() {
 
         {/* 검색 및 필터 섹션 */}
         <div className="space-y-3">
-          <ThemeSearch
+          <PartySearch
             onSearch={handleSearch}
             onFilterChange={handleFilterChange}
             onFilterApply={handleFilterApply}
-            filterType="party"
             searchTerm={searchKeyword}
             onSearchTermChange={setSearchKeyword}
             isFilterModalOpen={isFilterModalOpen}
@@ -474,6 +474,19 @@ export default function PartiesPage() {
             )}
           </div>
         </div>
+
+        <PartiesFilterModal
+          isOpen={isFilterModalOpen}
+          onClose={() => setIsFilterModalOpen(false)}
+          onApply={handleFilterApply}
+          currentFilters={{
+            regions: filterRegions,
+            genres: filterGenres.map(id => parseInt(id)),
+            dates: filterDates,
+            subRegions: filterSubRegions,
+            genreNames: filterGenreNames
+          }}
+        />
 
         {initialLoading ? (
           <PageLoading />
